@@ -1,0 +1,152 @@
+// Learning Portal — Prisma schema
+// Combines BetterAuth-required models with the domain model (LearningItem, Tag).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────
+// BetterAuth tables (shape per better-auth v1.x Prisma adapter)
+// ─────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+
+  items LearningItem[]
+  tags  Tag[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+// ─────────────────────────────────────────────────────────
+// Domain
+// ─────────────────────────────────────────────────────────
+
+enum ItemType {
+  PROJECT
+  COURSE
+  CERTIFICATION
+  VIDEO
+  BOOK
+  MISC
+}
+
+enum ItemStatus {
+  BACKLOG
+  PLANNED
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  DROPPED
+}
+
+model LearningItem {
+  id          String @id @default(cuid())
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String? @db.Text
+
+  type     ItemType
+  status   ItemStatus @default(BACKLOG)
+  priority Int        @default(0)
+
+  progressPercent Int   @default(0)
+  estimatedHours  Float?
+  actualHours     Float? @default(0)
+
+  sourceUrl String?
+  notes     String? @db.Text
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  tags LearningItemTag[]
+
+  @@index([userId, status])
+  @@index([userId, type])
+  @@index([userId, updatedAt(sort: Desc)])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+
+  items LearningItemTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model LearningItemTag {
+  itemId String
+  tagId  String
+  item   LearningItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag    Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+  @@index([tagId])
+}
