@@ -11,7 +11,7 @@ export default function NewItemPage() {
         The full create form lands in Phase 2.
       </p>
       <div>
-        <Button variant="outline" render={<Link href="/items" />}>
+        <Button variant="outline" nativeButton={false} render={<Link href="/items" />}>
           Back to items
         </Button>
       </div>

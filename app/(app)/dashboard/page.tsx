@@ -21,7 +21,7 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-semibold">Dashboard</h1>
           <p className="text-muted-foreground text-sm">An overview of what you&apos;re learning.</p>
         </div>
-        <Button render={<Link href="/items/new" />}>
+        <Button nativeButton={false} render={<Link href="/items/new" />}>
           <Plus className="size-4" />
           New item
         </Button>
@@ -33,7 +33,7 @@ export default async function DashboardPage() {
           title="No learning items yet"
           description="Add your first project, course, book, or video to start tracking."
           action={
-            <Button render={<Link href="/items/new" />}>
+            <Button nativeButton={false} render={<Link href="/items/new" />}>
               <Plus className="size-4" />
               Add your first item
             </Button>

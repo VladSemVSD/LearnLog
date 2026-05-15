@@ -18,7 +18,7 @@ export default async function ItemsPage() {
           <h1 className="text-2xl font-semibold">Items</h1>
           <p className="text-muted-foreground text-sm">Everything you&apos;re tracking.</p>
         </div>
-        <Button render={<Link href="/items/new" />}>
+        <Button nativeButton={false} render={<Link href="/items/new" />}>
           <Plus className="size-4" />
           New item
         </Button>
@@ -30,7 +30,7 @@ export default async function ItemsPage() {
           title="No items yet"
           description="Items you add will appear here."
           action={
-            <Button render={<Link href="/items/new" />}>
+            <Button nativeButton={false} render={<Link href="/items/new" />}>
               <Plus className="size-4" />
               Add your first item
             </Button>
