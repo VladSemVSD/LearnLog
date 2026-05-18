@@ -127,7 +127,11 @@ export function ItemForm(props: ItemFormProps) {
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select type" />
+                  <SelectValue>
+                    {(v: string) =>
+                      v ? TYPE_LABEL[v as ItemType] : "Select type"
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.keys(TYPE_LABEL) as ItemType[]).map((t) => (
@@ -148,7 +152,11 @@ export function ItemForm(props: ItemFormProps) {
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select status" />
+                  <SelectValue>
+                    {(v: string) =>
+                      v ? STATUS_LABEL[v as ItemStatus] : "Select status"
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.keys(STATUS_LABEL) as ItemStatus[]).map((s) => (
@@ -172,7 +180,12 @@ export function ItemForm(props: ItemFormProps) {
                 onValueChange={(v) => field.onChange(Number(v))}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Priority" />
+                  <SelectValue>
+                    {(v: string) =>
+                      PRIORITY_OPTIONS.find((o) => String(o.value) === v)
+                        ?.label ?? "Priority"
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {PRIORITY_OPTIONS.map((o) => (

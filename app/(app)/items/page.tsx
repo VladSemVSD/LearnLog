@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { ListTodo, Plus } from "lucide-react";
+import { ListTodo, Plus, SearchX } from "lucide-react";
 import { listItemsForUser } from "@/features/learning-items/server/queries";
+import { listTagsForUser } from "@/features/tags/server/queries";
+import { itemFilterSchema } from "@/features/learning-items/schema";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -13,13 +15,42 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/features/learning-items/components/status-badge";
 import { ProgressBar } from "@/features/learning-items/components/progress-bar";
+import { ItemsFilters } from "@/features/learning-items/components/items-filters";
 import { TagChip } from "@/features/tags/components/tag-chip";
 import { TYPE_LABEL } from "@/features/learning-items/constants";
 
 export const metadata = { title: "Items · Learning Portal" };
 
-export default async function ItemsPage() {
-  const items = await listItemsForUser();
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+export default async function ItemsPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const sp = await searchParams;
+  const parsed = itemFilterSchema.safeParse({
+    q: firstParam(sp.q),
+    type: firstParam(sp.type),
+    status: firstParam(sp.status),
+    tagId: firstParam(sp.tag),
+  });
+  const filter = parsed.success ? parsed.data : {};
+  const hasFilters =
+    Boolean(filter.q) ||
+    Boolean(filter.type) ||
+    Boolean(filter.status) ||
+    Boolean(filter.tagId);
+
+  const [items, tags] = await Promise.all([
+    listItemsForUser(filter),
+    listTagsForUser(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -36,18 +67,30 @@ export default async function ItemsPage() {
         </Button>
       </div>
 
+      <ItemsFilters
+        availableTags={tags.map((t) => ({ id: t.id, name: t.name }))}
+      />
+
       {items.length === 0 ? (
-        <EmptyState
-          icon={ListTodo}
-          title="No items yet"
-          description="Items you add will appear here."
-          action={
-            <Button nativeButton={false} render={<Link href="/items/new" />}>
-              <Plus className="size-4" />
-              Add your first item
-            </Button>
-          }
-        />
+        hasFilters ? (
+          <EmptyState
+            icon={SearchX}
+            title="No items match these filters"
+            description="Try clearing one or more filters."
+          />
+        ) : (
+          <EmptyState
+            icon={ListTodo}
+            title="No items yet"
+            description="Items you add will appear here."
+            action={
+              <Button nativeButton={false} render={<Link href="/items/new" />}>
+                <Plus className="size-4" />
+                Add your first item
+              </Button>
+            }
+          />
+        )
       ) : (
         <div className="border-border bg-card overflow-hidden rounded-lg border">
           <Table>
