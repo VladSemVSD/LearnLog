@@ -13,6 +13,7 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/features/learning-items/components/status-badge";
 import { ProgressBar } from "@/features/learning-items/components/progress-bar";
+import { TagChip } from "@/features/tags/components/tag-chip";
 import { TYPE_LABEL } from "@/features/learning-items/constants";
 
 export const metadata = { title: "Items · Learning Portal" };
@@ -63,12 +64,25 @@ export default async function ItemsPage() {
               {items.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>
-                    <Link
-                      href={`/items/${item.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {item.title}
-                    </Link>
+                    <div className="flex flex-col gap-1">
+                      <Link
+                        href={`/items/${item.id}`}
+                        className="font-medium hover:underline"
+                      >
+                        {item.title}
+                      </Link>
+                      {item.tags.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {item.tags.map(({ tag }) => (
+                            <TagChip
+                              key={tag.id}
+                              name={tag.name}
+                              color={tag.color}
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {TYPE_LABEL[item.type]}

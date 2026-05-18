@@ -1,12 +1,25 @@
+import { listTagsForUser } from "@/features/tags/server/queries";
+import { TagsManager } from "@/features/tags/components/tags-manager";
+
 export const metadata = { title: "Tags · Learning Portal" };
 
-export default function TagsPage() {
+export default async function TagsPage() {
+  const tags = await listTagsForUser();
+  const plain = tags.map((t) => ({
+    id: t.id,
+    name: t.name,
+    color: t.color,
+  }));
+
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Tags</h1>
-      <p className="text-muted-foreground text-sm">
-        Tag management arrives with Phase 2.
-      </p>
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Tags</h1>
+        <p className="text-muted-foreground text-sm">
+          Manage tags you can attach to learning items.
+        </p>
+      </div>
+      <TagsManager tags={plain} />
     </div>
   );
 }

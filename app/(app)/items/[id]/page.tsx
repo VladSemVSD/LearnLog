@@ -2,10 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ExternalLink, Pencil } from "lucide-react";
 import { getItemForUser } from "@/features/learning-items/server/queries";
+import { listTagsForUser } from "@/features/tags/server/queries";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/features/learning-items/components/status-badge";
 import { ProgressBar } from "@/features/learning-items/components/progress-bar";
 import { DeleteItemButton } from "@/features/learning-items/components/delete-item-button";
+import { TagChip } from "@/features/tags/components/tag-chip";
+import { TagPicker } from "@/features/tags/components/tag-picker";
 import {
   TYPE_LABEL,
   TYPE_ICON,
@@ -19,10 +22,15 @@ export default async function ItemDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const item = await getItemForUser(id);
+  const [item, allTags] = await Promise.all([
+    getItemForUser(id),
+    listTagsForUser(),
+  ]);
   if (!item) notFound();
 
   const TypeIcon = TYPE_ICON[item.type];
+  const attachedTags = item.tags.map((t) => t.tag);
+  const attachedIds = attachedTags.map((t) => t.id);
 
   return (
     <div className="flex flex-col gap-6">
@@ -101,6 +109,32 @@ export default async function ItemDetailPage({
           </a>
         </div>
       ) : null}
+
+      <section className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium">Tags</h2>
+          <TagPicker
+            itemId={item.id}
+            availableTags={allTags.map((t) => ({
+              id: t.id,
+              name: t.name,
+              color: t.color,
+            }))}
+            attachedIds={attachedIds}
+          />
+        </div>
+        {attachedTags.length === 0 ? (
+          <p className="text-muted-foreground text-sm italic">
+            No tags attached.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {attachedTags.map((tag) => (
+              <TagChip key={tag.id} name={tag.name} color={tag.color} />
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4">
         <h2 className="text-sm font-medium">Notes</h2>
