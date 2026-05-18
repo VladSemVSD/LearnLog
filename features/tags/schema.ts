@@ -27,6 +27,10 @@ export const tagAttachmentSchema = z.object({
   tagId: z.string().min(1),
 });
 
+export const deleteTagSchema = z.object({
+  id: z.string().min(1),
+});
+
 export type CreateTagInput = z.input<typeof createTagSchema>;
 export type UpdateTagInput = z.input<typeof updateTagSchema>;
 export type TagAttachmentInput = z.input<typeof tagAttachmentSchema>;

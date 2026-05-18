@@ -23,7 +23,7 @@ export function DeleteItemButton({ itemId }: { itemId: string }) {
 
   function handleConfirm() {
     startTransition(async () => {
-      const result = await deleteItemAction(itemId);
+      const result = await deleteItemAction({ id: itemId });
       if (!result.ok) {
         toast.error(result.error);
         return;

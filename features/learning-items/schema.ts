@@ -44,6 +44,10 @@ export const updateItemNotesSchema = z.object({
   notes: z.string().max(20_000),
 });
 
+export const deleteItemSchema = z.object({
+  id: z.string().min(1),
+});
+
 export type CreateItemInput = z.infer<typeof createItemSchema>;
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;
 export type UpdateItemStatusInput = z.infer<typeof updateItemStatusSchema>;

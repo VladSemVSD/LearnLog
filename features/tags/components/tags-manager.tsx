@@ -224,7 +224,7 @@ function DeleteTagButton({ id, name }: { id: string; name: string }) {
 
   function confirm() {
     startTransition(async () => {
-      const result = await deleteTagAction(id);
+      const result = await deleteTagAction({ id });
       if (!result.ok) {
         toast.error(result.error);
         return;

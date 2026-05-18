@@ -51,13 +51,32 @@ type ActionResult<T> =
   | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
 ```
 
-Every action body:
+The contract is owned by the **action runner** in `lib/actions.ts`. Action
+files (`features/<f>/server/actions.ts`) declare actions via `defineAction`:
 
-1. `const user = await requireUser()`
-2. `const parsed = schema.safeParse(input)` — return `fieldErrors` on failure
-3. Call `service.fn(user.id, parsed.data)`
-4. `revalidatePath(...)` for affected routes
-5. Return `{ ok: true, data }`
+```ts
+export const createItemAction = defineAction({
+  schema: createItemSchema,
+  invalidates: ["items"],       // cache namespace prefixes; runner appends `:${userId}`
+  service: (userId, input) => createItem(userId, input),
+  map: (item) => ({ id: item.id }),
+});
+```
+
+The runner handles, in order, for every action:
+
+1. `requireUser()`
+2. `schema.safeParse(input)` — returns `fieldErrors` on failure
+3. Calls the `service` lambda with `(userId, parsedInput)`
+4. If the service returns `null` → `{ ok: false, error: "Not found." }`
+5. Calls `updateTag` for each `${prefix}:${userId}` in `invalidates`
+   (Next 16's read-your-own-writes API for `unstable_cache` tags)
+6. Returns `{ ok: true, data: map(result) }`
+
+Domain-error short-circuit: a service lambda can `throw new ActionError({error,
+fieldErrors})` for translated errors (e.g. Prisma P2002 unique violations). The
+runner catches it and returns the envelope. Use `isUniqueViolation(err)` to
+detect P2002.
 
 ## Auth
 
