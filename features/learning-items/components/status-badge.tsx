@@ -1,4 +1,4 @@
-import type { ItemStatus } from "@/lib/generated/prisma/client";
+import type { ItemStatus } from "@/lib/generated/prisma/enums";
 import { STATUS_COLOR, STATUS_LABEL } from "../constants";
 import { cn } from "@/lib/utils";
 
