@@ -1,10 +1,12 @@
-import { listTagsForUser } from "@/features/tags/server/queries";
+import { requireUser } from "@/features/auth/server";
+import { listTags } from "@/features/tags/service";
 import { TagsManager } from "@/features/tags/components/tags-manager";
 
 export const metadata = { title: "Tags · Learning Portal" };
 
 export default async function TagsPage() {
-  const tags = await listTagsForUser();
+  const user = await requireUser();
+  const tags = await listTags(user.id);
   const plain = tags.map((t) => ({
     id: t.id,
     name: t.name,

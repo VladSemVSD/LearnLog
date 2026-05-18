@@ -6,13 +6,21 @@ Condensed reference. The full plan lives at `C:\Users\ashir\.claude\plans\learni
 
 ```
 UI (RSC by default)
-  ↓
-Server actions / RSC queries  (features/<f>/server/)
-  ↓
-Service                       (features/<f>/service.ts)  — only layer to touch Prisma
-  ↓
-Prisma + Postgres (Neon)
+  │
+  ├── reads ──→ Service        (features/<f>/service.ts)
+  │
+  └── writes ─→ Server actions (features/<f>/server/actions.ts)
+                  ↓
+                Service        (features/<f>/service.ts)  — only layer to touch Prisma
+                  ↓
+                Prisma + Postgres (Neon)
 ```
+
+RSC pages call services directly with `requireUser().id`. There is no
+intermediate `server/queries.ts` layer — wrappers that only forwarded
+`(userId, ...)` added no leverage and were removed. The `server/actions.ts`
+file remains because the `"use server"` directive boundary is real:
+writes need it, reads don't.
 
 ## Folder layout
 

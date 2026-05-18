@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Clock, ListTodo, Plus, Sparkles, Trophy } from "lucide-react";
+import { requireUser } from "@/features/auth/server";
 import {
-  dashboardInProgressForUser,
-  dashboardRecentCompletedForUser,
-  dashboardStaleForUser,
-  statusCountsForUser,
-} from "@/features/learning-items/server/queries";
+  countItemsByStatus,
+  getInProgressItems,
+  getRecentlyCompleted,
+  getStaleItems,
+} from "@/features/learning-items/service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -30,11 +31,12 @@ type ItemRow = {
 };
 
 export default async function DashboardPage() {
+  const user = await requireUser();
   const [counts, inProgress, recent, stale] = await Promise.all([
-    statusCountsForUser(),
-    dashboardInProgressForUser(),
-    dashboardRecentCompletedForUser(),
-    dashboardStaleForUser(),
+    countItemsByStatus(user.id),
+    getInProgressItems(user.id),
+    getRecentlyCompleted(user.id),
+    getStaleItems(user.id),
   ]);
 
   const total = counts.reduce((acc, c) => acc + c.count, 0);

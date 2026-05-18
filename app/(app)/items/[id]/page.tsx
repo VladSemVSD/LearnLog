@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ExternalLink, Pencil } from "lucide-react";
-import { getItemForUser } from "@/features/learning-items/server/queries";
-import { listTagsForUser } from "@/features/tags/server/queries";
+import { requireUser } from "@/features/auth/server";
+import { getItem } from "@/features/learning-items/service";
+import { listTags } from "@/features/tags/service";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/features/learning-items/components/status-badge";
 import { DeleteItemButton } from "@/features/learning-items/components/delete-item-button";
@@ -23,9 +24,10 @@ export default async function ItemDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await requireUser();
   const [item, allTags] = await Promise.all([
-    getItemForUser(id),
-    listTagsForUser(),
+    getItem(user.id, id),
+    listTags(user.id),
   ]);
   if (!item) notFound();
 

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ListTodo, Plus, SearchX } from "lucide-react";
-import { listItemsForUser } from "@/features/learning-items/server/queries";
-import { listTagsForUser } from "@/features/tags/server/queries";
+import { requireUser } from "@/features/auth/server";
+import { listItems } from "@/features/learning-items/service";
+import { listTags } from "@/features/tags/service";
 import { itemFilterSchema } from "@/features/learning-items/schema";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,9 +48,10 @@ export default async function ItemsPage({
     Boolean(filter.status) ||
     Boolean(filter.tagId);
 
+  const user = await requireUser();
   const [items, tags] = await Promise.all([
-    listItemsForUser(filter),
-    listTagsForUser(),
+    listItems(user.id, filter),
+    listTags(user.id),
   ]);
 
   return (

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { getItemForUser } from "@/features/learning-items/server/queries";
+import { requireUser } from "@/features/auth/server";
+import { getItem } from "@/features/learning-items/service";
 import { ItemForm } from "@/features/learning-items/components/item-form";
 
 export const metadata = { title: "Edit item · Learning Portal" };
@@ -10,7 +11,8 @@ export default async function EditItemPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const item = await getItemForUser(id);
+  const user = await requireUser();
+  const item = await getItem(user.id, id);
   if (!item) notFound();
 
   return (
