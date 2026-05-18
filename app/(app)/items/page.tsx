@@ -105,12 +105,12 @@ export default async function ItemsPage({
             </TableHeader>
             <TableBody>
               {items.map((item) => (
-                <TableRow key={item.id}>
+                <TableRow key={item.id} className="relative cursor-pointer">
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       <Link
                         href={`/items/${item.id}`}
-                        className="font-medium hover:underline"
+                        className="font-medium before:absolute before:inset-0 before:content-['']"
                       >
                         {item.title}
                       </Link>

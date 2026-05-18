@@ -52,6 +52,54 @@ export function getItem(userId: string, id: string) {
   )();
 }
 
+export function getInProgressItems(userId: string, limit = 5) {
+  return unstable_cache(
+    async () =>
+      db.learningItem.findMany({
+        where: { userId, status: ItemStatus.IN_PROGRESS },
+        orderBy: { updatedAt: "desc" },
+        take: limit,
+        include: includeTags,
+      }),
+    ["dashboard-in-progress", userId, String(limit)],
+    { tags: [itemsTag(userId)], revalidate: ONE_HOUR },
+  )();
+}
+
+export function getRecentlyCompleted(userId: string, limit = 5) {
+  return unstable_cache(
+    async () =>
+      db.learningItem.findMany({
+        where: { userId, status: ItemStatus.COMPLETED },
+        orderBy: { completedAt: "desc" },
+        take: limit,
+        include: includeTags,
+      }),
+    ["dashboard-recent-completed", userId, String(limit)],
+    { tags: [itemsTag(userId)], revalidate: ONE_HOUR },
+  )();
+}
+
+export function getStaleItems(userId: string, days = 14, limit = 5) {
+  return unstable_cache(
+    async () => {
+      const cutoff = new Date(Date.now() - days * 86_400_000);
+      return db.learningItem.findMany({
+        where: {
+          userId,
+          status: ItemStatus.IN_PROGRESS,
+          updatedAt: { lt: cutoff },
+        },
+        orderBy: { updatedAt: "asc" },
+        take: limit,
+        include: includeTags,
+      });
+    },
+    ["dashboard-stale", userId, String(days), String(limit)],
+    { tags: [itemsTag(userId)], revalidate: ONE_HOUR },
+  )();
+}
+
 export function countItemsByStatus(userId: string) {
   return unstable_cache(
     async () => {
@@ -217,7 +265,11 @@ export function deriveStatusOnProgress(
 } {
   let nextStatus = currentStatus;
   let startedAt: Date | undefined;
-  if (nextProgress > 0 && currentStatus === ItemStatus.BACKLOG) {
+  // Any "not yet started" status auto-promotes to IN_PROGRESS once progress > 0.
+  const notYetStarted =
+    currentStatus === ItemStatus.BACKLOG ||
+    currentStatus === ItemStatus.PLANNED;
+  if (nextProgress > 0 && notYetStarted) {
     nextStatus = ItemStatus.IN_PROGRESS;
     startedAt = new Date();
   }
