@@ -179,7 +179,12 @@ export async function updateItemProgress(
     patch.startedAt = derived.startedAt;
   }
   const item = await db.learningItem.update({ where: { id }, data: patch });
-  return { item, shouldPromptComplete: derived.shouldPromptComplete };
+  const autoStarted = derived.nextStatus !== existing.status;
+  return {
+    item,
+    shouldPromptComplete: derived.shouldPromptComplete,
+    autoStarted,
+  };
 }
 
 export async function updateItemNotes(

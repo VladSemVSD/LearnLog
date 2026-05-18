@@ -5,9 +5,9 @@ import { getItemForUser } from "@/features/learning-items/server/queries";
 import { listTagsForUser } from "@/features/tags/server/queries";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/features/learning-items/components/status-badge";
-import { ProgressBar } from "@/features/learning-items/components/progress-bar";
 import { DeleteItemButton } from "@/features/learning-items/components/delete-item-button";
 import { NotesSection } from "@/features/learning-items/components/notes-section";
+import { ProgressSlider } from "@/features/learning-items/components/progress-slider";
 import { TagChip } from "@/features/tags/components/tag-chip";
 import { TagPicker } from "@/features/tags/components/tag-picker";
 import {
@@ -70,13 +70,11 @@ export default async function ItemDetailPage({
       ) : null}
 
       <section className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Progress</h2>
-          <span className="text-muted-foreground text-xs tabular-nums">
-            {item.progressPercent}%
-          </span>
-        </div>
-        <ProgressBar value={item.progressPercent} />
+        <h2 className="text-sm font-medium">Progress</h2>
+        <ProgressSlider
+          itemId={item.id}
+          initialProgress={item.progressPercent}
+        />
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2">

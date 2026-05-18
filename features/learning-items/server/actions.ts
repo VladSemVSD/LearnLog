@@ -108,7 +108,13 @@ export async function updateItemStatusAction(
 
 export async function updateItemProgressAction(
   input: { id: string; progressPercent: number },
-): Promise<ActionResult<{ id: string; shouldPromptComplete: boolean }>> {
+): Promise<
+  ActionResult<{
+    id: string;
+    shouldPromptComplete: boolean;
+    autoStarted: boolean;
+  }>
+> {
   const user = await requireUser();
   const parsed = updateItemProgressSchema.safeParse(input);
   if (!parsed.success) {
@@ -123,7 +129,11 @@ export async function updateItemProgressAction(
   invalidateItems(user.id);
   return {
     ok: true,
-    data: { id: result.item.id, shouldPromptComplete: result.shouldPromptComplete },
+    data: {
+      id: result.item.id,
+      shouldPromptComplete: result.shouldPromptComplete,
+      autoStarted: result.autoStarted,
+    },
   };
 }
 
