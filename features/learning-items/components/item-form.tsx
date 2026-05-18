@@ -62,7 +62,6 @@ export function ItemForm(props: ItemFormProps) {
       actualHours: null,
       sourceUrl: "",
       notes: "",
-      tagIds: [],
       ...props.defaultValues,
     },
   });

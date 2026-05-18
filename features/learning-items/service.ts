@@ -162,9 +162,10 @@ export async function createItem(userId: string, input: CreateItemInput) {
 }
 
 export async function updateItem(userId: string, input: UpdateItemInput) {
-  const { id, tagIds, status: _statusIgnored, ...rest } = input;
-  void tagIds;
-  void _statusIgnored; // Status changes go through updateItemStatus (lifecycle).
+  // Status changes go through updateItemStatus (lifecycle owns that side
+  // effect chain); strip it out of generic updates so callers can't bypass.
+  const { id, status: _statusIgnored, ...rest } = input;
+  void _statusIgnored;
   const sourceUrl = normalizeSourceUrl(rest.sourceUrl);
   const data = {
     ...rest,

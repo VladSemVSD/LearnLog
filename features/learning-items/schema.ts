@@ -22,7 +22,6 @@ export const createItemSchema = z.object({
   actualHours: z.number().min(0).optional().nullable(),
   sourceUrl: optionalUrl,
   notes: z.string().max(20_000).optional().nullable(),
-  tagIds: z.array(z.string()).default([]),
 });
 
 export const updateItemSchema = createItemSchema.partial().extend({
