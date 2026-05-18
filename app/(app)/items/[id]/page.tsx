@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/features/learning-items/components/status-badge";
 import { ProgressBar } from "@/features/learning-items/components/progress-bar";
 import { DeleteItemButton } from "@/features/learning-items/components/delete-item-button";
+import { NotesSection } from "@/features/learning-items/components/notes-section";
 import { TagChip } from "@/features/tags/components/tag-chip";
 import { TagPicker } from "@/features/tags/components/tag-picker";
 import {
@@ -136,16 +137,7 @@ export default async function ItemDetailPage({
         )}
       </section>
 
-      <section className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4">
-        <h2 className="text-sm font-medium">Notes</h2>
-        {item.notes ? (
-          <p className="whitespace-pre-wrap text-sm">{item.notes}</p>
-        ) : (
-          <p className="text-muted-foreground text-sm italic">
-            No notes yet. Rich notes editor lands later in Phase 2.
-          </p>
-        )}
-      </section>
+      <NotesSection itemId={item.id} initialNotes={item.notes ?? ""} />
     </div>
   );
 }

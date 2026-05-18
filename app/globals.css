@@ -128,3 +128,99 @@
     @apply font-sans;
   }
 }
+
+/* Markdown rendering for notes (Tiptap edit + react-markdown read).
+   No :where() — Tailwind v4 preflight resets h1..h6/ul/ol to inherit/none, and
+   :where() has 0 specificity so it loses to preflight. These selectors need
+   real specificity. */
+.tiptap-content p {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.tiptap-content h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.25;
+}
+.tiptap-content h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.3;
+}
+.tiptap-content h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+.tiptap-content ul {
+  list-style-type: disc;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+}
+.tiptap-content ol {
+  list-style-type: decimal;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+}
+.tiptap-content li {
+  margin-top: 0.125rem;
+  margin-bottom: 0.125rem;
+}
+.tiptap-content li > p {
+  margin: 0;
+}
+.tiptap-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.tiptap-content code {
+  background-color: var(--muted);
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.25rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8rem;
+}
+.tiptap-content pre {
+  background-color: var(--muted);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  overflow-x: auto;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8rem;
+}
+.tiptap-content pre code {
+  background-color: transparent;
+  padding: 0;
+}
+.tiptap-content blockquote {
+  border-left: 2px solid var(--border);
+  padding-left: 0.75rem;
+  font-style: italic;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.tiptap-content strong {
+  font-weight: 600;
+}
+.tiptap-content em {
+  font-style: italic;
+}
+/* Placeholder via data attribute on the editor root when empty */
+.tiptap-content[data-placeholder]:empty::before,
+.tiptap-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
