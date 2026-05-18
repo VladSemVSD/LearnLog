@@ -97,11 +97,13 @@ export default async function ItemsPage() {
   );
 }
 
-function formatRelative(date: Date): string {
-  const diffMs = Date.now() - date.getTime();
+function formatRelative(date: Date | string): string {
+  // unstable_cache serializes Date as a string; coerce defensively.
+  const d = date instanceof Date ? date : new Date(date);
+  const diffMs = Date.now() - d.getTime();
   const day = 86_400_000;
   if (diffMs < day) return "Today";
   if (diffMs < day * 2) return "Yesterday";
   if (diffMs < day * 7) return `${Math.floor(diffMs / day)}d ago`;
-  return date.toLocaleDateString();
+  return d.toLocaleDateString();
 }

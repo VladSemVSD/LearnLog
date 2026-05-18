@@ -80,13 +80,11 @@ export default async function ItemDetailPage({
         />
         <Metadata
           label="Started"
-          value={item.startedAt ? item.startedAt.toLocaleDateString() : "—"}
+          value={item.startedAt ? formatDate(item.startedAt) : "—"}
         />
         <Metadata
           label="Completed"
-          value={
-            item.completedAt ? item.completedAt.toLocaleDateString() : "—"
-          }
+          value={item.completedAt ? formatDate(item.completedAt) : "—"}
         />
       </section>
 
@@ -116,6 +114,12 @@ export default async function ItemDetailPage({
       </section>
     </div>
   );
+}
+
+function formatDate(value: Date | string): string {
+  // unstable_cache serializes Date as a string; coerce defensively.
+  const d = value instanceof Date ? value : new Date(value);
+  return d.toLocaleDateString();
 }
 
 function Metadata({
