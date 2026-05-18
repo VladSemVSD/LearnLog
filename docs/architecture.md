@@ -29,6 +29,8 @@ docs/                  # this file
 
 Single `LearningItem` table keyed by `type` enum. Tags are an explicit M-N join via `LearningItemTag`.
 
+An item's **lifecycle** is its `status` plus the dependent fields that move with it: `startedAt`, `completedAt`, and `progressPercent` when forced (e.g. setting status to COMPLETED forces 100%). The lifecycle rules live in `features/learning-items/lifecycle.ts` as a pure function `applyLifecycleIntent(current, intent, now?)` returning `{ patch, prompts }`. Every write to a LearningItem's status or progress goes through it, so the rules can't drift across call sites. Unit tests in `features/learning-items/lifecycle.test.ts`.
+
 | Field           | Notes                                         |
 | --------------- | --------------------------------------------- |
 | `type`          | PROJECT \| COURSE \| CERTIFICATION \| VIDEO \| BOOK \| MISC |

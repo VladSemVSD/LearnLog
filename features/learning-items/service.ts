@@ -2,12 +2,16 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
-import { ItemStatus, type ItemType } from "@/lib/generated/prisma/client";
+import { ItemStatus } from "@/lib/generated/prisma/client";
 import type {
   CreateItemInput,
   ItemFilter,
   UpdateItemInput,
 } from "./schema";
+import {
+  applyLifecycleIntent,
+  type CurrentLifecycle,
+} from "./lifecycle";
 
 const ONE_HOUR = 3600;
 
@@ -115,51 +119,52 @@ export function countItemsByStatus(userId: string) {
   )();
 }
 
-type CreateData = Omit<CreateItemInput, "tagIds" | "sourceUrl"> & {
-  sourceUrl?: string | null;
-};
-
-function normalizeForWrite(input: Partial<CreateItemInput>) {
-  // Treat empty-string URLs from form inputs as null.
-  const sourceUrl =
-    input.sourceUrl === undefined
-      ? undefined
-      : input.sourceUrl === "" || input.sourceUrl === null
-        ? null
-        : input.sourceUrl;
-  return { ...input, sourceUrl };
+function normalizeSourceUrl(value: string | null | undefined): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  return value;
 }
 
 export async function createItem(userId: string, input: CreateItemInput) {
-  const data = normalizeForWrite(input) as CreateData & {
-    title: string;
-    type: ItemType;
-  };
+  // Lifecycle owns status + the dependent fields. Other fields come from input.
+  const { patch } = applyLifecycleIntent(
+    {
+      status: ItemStatus.BACKLOG,
+      startedAt: null,
+      completedAt: null,
+      progressPercent: 0,
+    },
+    {
+      kind: "create",
+      status: input.status ?? ItemStatus.BACKLOG,
+      progressPercent: input.progressPercent ?? 0,
+    },
+  );
+
   return db.learningItem.create({
     data: {
       userId,
-      title: data.title,
-      description: data.description ?? null,
-      type: data.type,
-      status: data.status ?? ItemStatus.BACKLOG,
-      priority: data.priority ?? 0,
-      progressPercent: data.progressPercent ?? 0,
-      estimatedHours: data.estimatedHours ?? null,
-      actualHours: data.actualHours ?? null,
-      sourceUrl: data.sourceUrl ?? null,
-      notes: data.notes ?? null,
-      startedAt:
-        (data.status ?? ItemStatus.BACKLOG) === ItemStatus.IN_PROGRESS
-          ? new Date()
-          : null,
+      title: input.title,
+      description: input.description ?? null,
+      type: input.type,
+      priority: input.priority ?? 0,
+      estimatedHours: input.estimatedHours ?? null,
+      actualHours: input.actualHours ?? null,
+      sourceUrl: normalizeSourceUrl(input.sourceUrl) ?? null,
+      notes: input.notes ?? null,
+      status: patch.status ?? ItemStatus.BACKLOG,
+      startedAt: patch.startedAt ?? null,
+      completedAt: patch.completedAt ?? null,
+      progressPercent: patch.progressPercent ?? 0,
     },
   });
 }
 
 export async function updateItem(userId: string, input: UpdateItemInput) {
-  const { id, tagIds, ...rest } = input;
-  void tagIds; // Tag attachment lives in the tags service (Commit 2).
-  const data = normalizeForWrite(rest);
+  const { id, tagIds, status: _statusIgnored, ...rest } = input;
+  void tagIds;
+  void _statusIgnored; // Status changes go through updateItemStatus (lifecycle).
+  const sourceUrl = normalizeSourceUrl(rest.sourceUrl);
   const existing = await db.learningItem.findFirst({
     where: { id, userId },
     select: { id: true },
@@ -167,7 +172,10 @@ export async function updateItem(userId: string, input: UpdateItemInput) {
   if (!existing) return null;
   return db.learningItem.update({
     where: { id },
-    data,
+    data: {
+      ...rest,
+      ...(sourceUrl !== undefined ? { sourceUrl } : {}),
+    },
   });
 }
 
@@ -181,28 +189,41 @@ export async function deleteItem(userId: string, id: string) {
   return { id };
 }
 
+async function loadLifecycle(
+  userId: string,
+  id: string,
+): Promise<CurrentLifecycle | null> {
+  const existing = await db.learningItem.findFirst({
+    where: { id, userId },
+    select: {
+      id: true,
+      status: true,
+      startedAt: true,
+      completedAt: true,
+      progressPercent: true,
+    },
+  });
+  if (!existing) return null;
+  return {
+    status: existing.status,
+    startedAt: existing.startedAt,
+    completedAt: existing.completedAt,
+    progressPercent: existing.progressPercent,
+  };
+}
+
 export async function updateItemStatus(
   userId: string,
   id: string,
   status: ItemStatus,
 ) {
-  const existing = await db.learningItem.findFirst({
-    where: { id, userId },
-    select: { id: true, status: true, startedAt: true, completedAt: true },
-  });
-  if (!existing) return null;
+  const current = await loadLifecycle(userId, id);
+  if (!current) return null;
 
-  const patch: Record<string, unknown> = { status };
-  if (status === ItemStatus.IN_PROGRESS && !existing.startedAt) {
-    patch.startedAt = new Date();
-  }
-  if (status === ItemStatus.COMPLETED) {
-    patch.completedAt = new Date();
-    patch.progressPercent = 100;
-  } else if (existing.status === ItemStatus.COMPLETED) {
-    // Moving out of COMPLETED clears completedAt.
-    patch.completedAt = null;
-  }
+  const { patch } = applyLifecycleIntent(current, {
+    kind: "setStatus",
+    to: status,
+  });
 
   return db.learningItem.update({ where: { id }, data: patch });
 }
@@ -212,26 +233,19 @@ export async function updateItemProgress(
   id: string,
   nextProgress: number,
 ) {
-  const existing = await db.learningItem.findFirst({
-    where: { id, userId },
-    select: { id: true, status: true, startedAt: true },
-  });
-  if (!existing) return null;
+  const current = await loadLifecycle(userId, id);
+  if (!current) return null;
 
-  const derived = deriveStatusOnProgress(existing.status, nextProgress);
-  const patch: Record<string, unknown> = {
-    progressPercent: nextProgress,
-    status: derived.nextStatus,
-  };
-  if (derived.startedAt && !existing.startedAt) {
-    patch.startedAt = derived.startedAt;
-  }
+  const { patch, prompts } = applyLifecycleIntent(current, {
+    kind: "setProgress",
+    value: nextProgress,
+  });
+
   const item = await db.learningItem.update({ where: { id }, data: patch });
-  const autoStarted = derived.nextStatus !== existing.status;
   return {
     item,
-    shouldPromptComplete: derived.shouldPromptComplete,
-    autoStarted,
+    shouldPromptComplete: prompts.includes("confirm-complete"),
+    autoStarted: patch.status === ItemStatus.IN_PROGRESS,
   };
 }
 
@@ -249,31 +263,4 @@ export async function updateItemNotes(
     where: { id },
     data: { notes },
   });
-}
-
-/**
- * Pure helper — the single source of truth for status auto-derivation.
- * Used by updateItemProgress and any future bulk update flow.
- */
-export function deriveStatusOnProgress(
-  currentStatus: ItemStatus,
-  nextProgress: number,
-): {
-  nextStatus: ItemStatus;
-  startedAt?: Date;
-  shouldPromptComplete: boolean;
-} {
-  let nextStatus = currentStatus;
-  let startedAt: Date | undefined;
-  // Any "not yet started" status auto-promotes to IN_PROGRESS once progress > 0.
-  const notYetStarted =
-    currentStatus === ItemStatus.BACKLOG ||
-    currentStatus === ItemStatus.PLANNED;
-  if (nextProgress > 0 && notYetStarted) {
-    nextStatus = ItemStatus.IN_PROGRESS;
-    startedAt = new Date();
-  }
-  const shouldPromptComplete =
-    nextProgress >= 100 && currentStatus !== ItemStatus.COMPLETED;
-  return { nextStatus, startedAt, shouldPromptComplete };
 }
