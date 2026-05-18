@@ -3,6 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { ItemStatus } from "@/lib/generated/prisma/client";
+import { deleteScoped, updateScoped } from "@/lib/ownership";
 import type {
   CreateItemInput,
   ItemFilter,
@@ -165,28 +166,17 @@ export async function updateItem(userId: string, input: UpdateItemInput) {
   void tagIds;
   void _statusIgnored; // Status changes go through updateItemStatus (lifecycle).
   const sourceUrl = normalizeSourceUrl(rest.sourceUrl);
-  const existing = await db.learningItem.findFirst({
-    where: { id, userId },
-    select: { id: true },
-  });
-  if (!existing) return null;
-  return db.learningItem.update({
-    where: { id },
-    data: {
-      ...rest,
-      ...(sourceUrl !== undefined ? { sourceUrl } : {}),
-    },
-  });
+  const data = {
+    ...rest,
+    ...(sourceUrl !== undefined ? { sourceUrl } : {}),
+  };
+  const ok = await updateScoped(db.learningItem, { id, userId }, data);
+  return ok ? { id } : null;
 }
 
 export async function deleteItem(userId: string, id: string) {
-  const existing = await db.learningItem.findFirst({
-    where: { id, userId },
-    select: { id: true },
-  });
-  if (!existing) return null;
-  await db.learningItem.delete({ where: { id } });
-  return { id };
+  const ok = await deleteScoped(db.learningItem, { id, userId });
+  return ok ? { id } : null;
 }
 
 async function loadLifecycle(
@@ -225,7 +215,8 @@ export async function updateItemStatus(
     to: status,
   });
 
-  return db.learningItem.update({ where: { id }, data: patch });
+  const ok = await updateScoped(db.learningItem, { id, userId }, patch);
+  return ok ? { id } : null;
 }
 
 export async function updateItemProgress(
@@ -241,9 +232,10 @@ export async function updateItemProgress(
     value: nextProgress,
   });
 
-  const item = await db.learningItem.update({ where: { id }, data: patch });
+  const ok = await updateScoped(db.learningItem, { id, userId }, patch);
+  if (!ok) return null;
   return {
-    item,
+    item: { id },
     shouldPromptComplete: prompts.includes("confirm-complete"),
     autoStarted: patch.status === ItemStatus.IN_PROGRESS,
   };
@@ -254,13 +246,6 @@ export async function updateItemNotes(
   id: string,
   notes: string,
 ) {
-  const existing = await db.learningItem.findFirst({
-    where: { id, userId },
-    select: { id: true },
-  });
-  if (!existing) return null;
-  return db.learningItem.update({
-    where: { id },
-    data: { notes },
-  });
+  const ok = await updateScoped(db.learningItem, { id, userId }, { notes });
+  return ok ? { id } : null;
 }

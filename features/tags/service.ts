@@ -2,6 +2,7 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
+import { deleteScoped, updateScoped } from "@/lib/ownership";
 
 const ONE_HOUR = 3600;
 
@@ -46,25 +47,16 @@ export async function renameTag(
   id: string,
   patch: { name?: string; color?: string | null },
 ) {
-  const existing = await db.tag.findFirst({
-    where: { id, userId },
-    select: { id: true },
-  });
-  if (!existing) return null;
   const data: Record<string, unknown> = {};
   if (patch.name !== undefined) data.name = patch.name;
   if (patch.color !== undefined) data.color = normalizeColor(patch.color);
-  return db.tag.update({ where: { id }, data });
+  const ok = await updateScoped(db.tag, { id, userId }, data);
+  return ok ? { id, name: patch.name } : null;
 }
 
 export async function deleteTag(userId: string, id: string) {
-  const existing = await db.tag.findFirst({
-    where: { id, userId },
-    select: { id: true },
-  });
-  if (!existing) return null;
-  await db.tag.delete({ where: { id } });
-  return { id };
+  const ok = await deleteScoped(db.tag, { id, userId });
+  return ok ? { id } : null;
 }
 
 async function ownsTag(userId: string, tagId: string) {
