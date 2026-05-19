@@ -88,6 +88,14 @@ fieldErrors})` for translated errors (e.g. Prisma P2002 unique violations). The
 runner catches it and returns the envelope. Use `isUniqueViolation(err)` to
 detect P2002.
 
+## Caching
+
+Reads are wrapped in **cache namespaces** (`lib/cache.ts` → `createCacheNamespace`). Each feature owns its namespace: `itemsCache` in `features/learning-items/cache.ts`, `tagsCache` in `features/tags/cache.ts`. The namespace owns the tag format (`${key}:${userId}` — user-scoped), the default TTL (1 hour), and any cross-namespace **cascades**.
+
+Cascades are declared inline: `tagsCache` cascades to `itemsCache` because tag chips render on item rows. When a server action invalidates `tagsCache`, both tags and items get refreshed; the rule lives next to the cache, not in the action.
+
+Services call `namespace.wrap(userId, keyParts, fn)` instead of `unstable_cache` directly. Actions list which namespaces they write to via the runner's `invalidates` field. Cascades are one-level, not transitive.
+
 ## Auth
 
 BetterAuth + Prisma adapter, email/password. Sessions in DB. The `(app)` layout enforces `requireUser()`; the `(auth)` group renders sign-in/sign-up.

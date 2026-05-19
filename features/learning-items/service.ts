@@ -1,6 +1,5 @@
 import "server-only";
 
-import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { ItemStatus } from "@/lib/generated/prisma/client";
 import { deleteScoped, updateScoped } from "@/lib/ownership";
@@ -13,12 +12,6 @@ import {
   applyLifecycleIntent,
   type CurrentLifecycle,
 } from "./lifecycle";
-
-const ONE_HOUR = 3600;
-
-function itemsTag(userId: string) {
-  return `items:${userId}`;
-}
 
 function buildWhere(userId: string, f: ItemFilter) {
   return {
@@ -33,91 +26,54 @@ function buildWhere(userId: string, f: ItemFilter) {
 const includeTags = { tags: { include: { tag: true } } } as const;
 
 export function listItems(userId: string, filter: ItemFilter = {}) {
-  return unstable_cache(
-    async () =>
-      db.learningItem.findMany({
-        where: buildWhere(userId, filter),
-        orderBy: { updatedAt: "desc" },
-        include: includeTags,
-      }),
-    ["items", userId, JSON.stringify(filter)],
-    { tags: [itemsTag(userId)], revalidate: ONE_HOUR },
-  )();
+  return db.learningItem.findMany({
+    where: buildWhere(userId, filter),
+    orderBy: { updatedAt: "desc" },
+    include: includeTags,
+  });
 }
 
 export function getItem(userId: string, id: string) {
-  return unstable_cache(
-    async () =>
-      db.learningItem.findFirst({
-        where: { id, userId },
-        include: includeTags,
-      }),
-    ["item", userId, id],
-    { tags: [itemsTag(userId)], revalidate: ONE_HOUR },
-  )();
+  return db.learningItem.findFirst({
+    where: { id, userId },
+    include: includeTags,
+  });
 }
 
 export function getInProgressItems(userId: string, limit = 5) {
-  return unstable_cache(
-    async () =>
-      db.learningItem.findMany({
-        where: { userId, status: ItemStatus.IN_PROGRESS },
-        orderBy: { updatedAt: "desc" },
-        take: limit,
-        include: includeTags,
-      }),
-    ["dashboard-in-progress", userId, String(limit)],
-    { tags: [itemsTag(userId)], revalidate: ONE_HOUR },
-  )();
+  return db.learningItem.findMany({
+    where: { userId, status: ItemStatus.IN_PROGRESS },
+    orderBy: { updatedAt: "desc" },
+    take: limit,
+    include: includeTags,
+  });
 }
 
 export function getRecentlyCompleted(userId: string, limit = 5) {
-  return unstable_cache(
-    async () =>
-      db.learningItem.findMany({
-        where: { userId, status: ItemStatus.COMPLETED },
-        orderBy: { completedAt: "desc" },
-        take: limit,
-        include: includeTags,
-      }),
-    ["dashboard-recent-completed", userId, String(limit)],
-    { tags: [itemsTag(userId)], revalidate: ONE_HOUR },
-  )();
+  return db.learningItem.findMany({
+    where: { userId, status: ItemStatus.COMPLETED },
+    orderBy: { completedAt: "desc" },
+    take: limit,
+    include: includeTags,
+  });
 }
 
-export function getStaleItems(userId: string, days = 14, limit = 5) {
-  return unstable_cache(
-    async () => {
-      const cutoff = new Date(Date.now() - days * 86_400_000);
-      return db.learningItem.findMany({
-        where: {
-          userId,
-          status: ItemStatus.IN_PROGRESS,
-          updatedAt: { lt: cutoff },
-        },
-        orderBy: { updatedAt: "asc" },
-        take: limit,
-        include: includeTags,
-      });
-    },
-    ["dashboard-stale", userId, String(days), String(limit)],
-    { tags: [itemsTag(userId)], revalidate: ONE_HOUR },
-  )();
+export function getUpNextItems(userId: string, limit = 5) {
+  return db.learningItem.findMany({
+    where: { userId, status: ItemStatus.BACKLOG },
+    orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
+    take: limit,
+    include: includeTags,
+  });
 }
 
-export function countItemsByStatus(userId: string) {
-  return unstable_cache(
-    async () => {
-      const rows = await db.learningItem.groupBy({
-        by: ["status"],
-        where: { userId },
-        _count: { _all: true },
-      });
-      return rows.map((r) => ({ status: r.status, count: r._count._all }));
-    },
-    ["item-counts", userId],
-    { tags: [itemsTag(userId)], revalidate: ONE_HOUR },
-  )();
+export async function countItemsByStatus(userId: string) {
+  const rows = await db.learningItem.groupBy({
+    by: ["status"],
+    where: { userId },
+    _count: { _all: true },
+  });
+  return rows.map((r) => ({ status: r.status, count: r._count._all }));
 }
 
 function normalizeSourceUrl(value: string | null | undefined): string | null | undefined {

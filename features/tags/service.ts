@@ -1,14 +1,7 @@
 import "server-only";
 
-import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { deleteScoped, updateScoped } from "@/lib/ownership";
-
-const ONE_HOUR = 3600;
-
-function tagsTag(userId: string) {
-  return `tags:${userId}`;
-}
 
 function normalizeColor(color: string | null | undefined): string | null {
   if (!color) return null;
@@ -18,15 +11,10 @@ function normalizeColor(color: string | null | undefined): string | null {
 }
 
 export function listTags(userId: string) {
-  return unstable_cache(
-    async () =>
-      db.tag.findMany({
-        where: { userId },
-        orderBy: { name: "asc" },
-      }),
-    ["tags", userId],
-    { tags: [tagsTag(userId)], revalidate: ONE_HOUR },
-  )();
+  return db.tag.findMany({
+    where: { userId },
+    orderBy: { name: "asc" },
+  });
 }
 
 export async function createTag(

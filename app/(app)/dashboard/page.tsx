@@ -1,15 +1,19 @@
+import { Suspense } from "react";
 import Link from "next/link";
-import { Clock, ListTodo, Plus, Sparkles, Trophy } from "lucide-react";
+import { cacheTag } from "next/cache";
+import { Compass, ListTodo, Plus, Sparkles, Trophy } from "lucide-react";
 import { requireUser } from "@/features/auth/server";
+import { itemsCache } from "@/features/learning-items/cache";
 import {
   countItemsByStatus,
   getInProgressItems,
   getRecentlyCompleted,
-  getStaleItems,
+  getUpNextItems,
 } from "@/features/learning-items/service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { RelativeTime } from "@/components/shared/relative-time";
 import { StatusBadge } from "@/features/learning-items/components/status-badge";
 import { ProgressBar } from "@/features/learning-items/components/progress-bar";
 import {
@@ -26,17 +30,33 @@ type ItemRow = {
   type: ItemType;
   status: ItemStatus;
   progressPercent: number;
+  priority: number;
   updatedAt: Date | string;
   completedAt: Date | string | null;
 };
 
-export default async function DashboardPage() {
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardFallback />}>
+      <DashboardLoader />
+    </Suspense>
+  );
+}
+
+async function DashboardLoader() {
   const user = await requireUser();
-  const [counts, inProgress, recent, stale] = await Promise.all([
-    countItemsByStatus(user.id),
-    getInProgressItems(user.id),
-    getRecentlyCompleted(user.id),
-    getStaleItems(user.id),
+  return <DashboardContent userId={user.id} />;
+}
+
+async function DashboardContent({ userId }: { userId: string }) {
+  "use cache";
+  cacheTag(itemsCache.tagFor(userId));
+
+  const [counts, inProgress, recent, upNext] = await Promise.all([
+    countItemsByStatus(userId),
+    getInProgressItems(userId),
+    getRecentlyCompleted(userId),
+    getUpNextItems(userId),
   ]);
 
   const total = counts.reduce((acc, c) => acc + c.count, 0);
@@ -104,11 +124,11 @@ export default async function DashboardPage() {
               dateField="completedAt"
             />
             <ItemListCard
-              icon={Clock}
-              title="Stale (14d+)"
-              items={stale}
-              emptyText="No stale items — nice."
-              dateField="updatedAt"
+              icon={Compass}
+              title="Up next"
+              items={upNext}
+              emptyText="Backlog is empty."
+              showPriority
             />
           </div>
         </>
@@ -123,6 +143,7 @@ function ItemListCard({
   items,
   emptyText,
   showProgress,
+  showPriority,
   dateField,
 }: {
   icon: typeof Sparkles;
@@ -130,6 +151,7 @@ function ItemListCard({
   items: ItemRow[];
   emptyText: string;
   showProgress?: boolean;
+  showPriority?: boolean;
   dateField?: "completedAt" | "updatedAt";
 }) {
   return (
@@ -166,17 +188,22 @@ function ItemListCard({
                     </span>
                   </div>
                 ) : null}
-                {dateField ? (
+                {showPriority ? (
                   <span className="text-muted-foreground text-xs">
-                    {dateField === "completedAt" && item.completedAt
-                      ? `Completed ${formatRelative(item.completedAt)}`
-                      : null}
-                    {dateField === "updatedAt"
-                      ? `Last touched ${formatRelative(item.updatedAt)}`
-                      : null}
+                    Priority {item.priority}
                   </span>
                 ) : null}
-                {!showProgress && !dateField ? (
+                {dateField === "completedAt" && item.completedAt ? (
+                  <span className="text-muted-foreground text-xs">
+                    Completed <RelativeTime iso={item.completedAt} />
+                  </span>
+                ) : null}
+                {dateField === "updatedAt" ? (
+                  <span className="text-muted-foreground text-xs">
+                    Last touched <RelativeTime iso={item.updatedAt} />
+                  </span>
+                ) : null}
+                {!showProgress && !showPriority && !dateField ? (
                   <StatusBadge status={item.status} />
                 ) : null}
               </li>
@@ -188,12 +215,24 @@ function ItemListCard({
   );
 }
 
-function formatRelative(date: Date | string): string {
-  const d = date instanceof Date ? date : new Date(date);
-  const diffMs = Date.now() - d.getTime();
-  const day = 86_400_000;
-  if (diffMs < day) return "today";
-  if (diffMs < day * 2) return "yesterday";
-  if (diffMs < day * 30) return `${Math.floor(diffMs / day)}d ago`;
-  return d.toLocaleDateString();
+function DashboardFallback() {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2">
+          <div className="bg-muted h-7 w-40 animate-pulse rounded" />
+          <div className="bg-muted h-4 w-64 animate-pulse rounded" />
+        </div>
+        <div className="bg-muted h-9 w-28 animate-pulse rounded-md" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="border-border bg-card h-24 animate-pulse rounded-lg border"
+          />
+        ))}
+      </div>
+    </div>
+  );
 }

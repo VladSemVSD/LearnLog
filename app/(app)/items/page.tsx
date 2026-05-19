@@ -1,9 +1,14 @@
+import { Suspense } from "react";
 import Link from "next/link";
+import { cacheTag } from "next/cache";
 import { ListTodo, Plus, SearchX } from "lucide-react";
 import { requireUser } from "@/features/auth/server";
 import { listItems } from "@/features/learning-items/service";
 import { listTags } from "@/features/tags/service";
+import { itemsCache } from "@/features/learning-items/cache";
+import { tagsCache } from "@/features/tags/cache";
 import { itemFilterSchema } from "@/features/learning-items/schema";
+import type { ItemFilter } from "@/features/learning-items/schema";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -14,11 +19,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
+import { RelativeTime } from "@/components/shared/relative-time";
 import { StatusBadge } from "@/features/learning-items/components/status-badge";
 import { ProgressBar } from "@/features/learning-items/components/progress-bar";
 import { ItemsFilters } from "@/features/learning-items/components/items-filters";
 import { TagChip } from "@/features/tags/components/tag-chip";
 import { TYPE_LABEL } from "@/features/learning-items/constants";
+import ItemsLoading from "./loading";
 
 export const metadata = { title: "Items · Learning Portal" };
 
@@ -29,11 +36,19 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return value;
 }
 
-export default async function ItemsPage({
+export default function ItemsPage({
   searchParams,
 }: {
   searchParams: SearchParams;
 }) {
+  return (
+    <Suspense fallback={<ItemsLoading />}>
+      <ItemsLoader searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function ItemsLoader({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const parsed = itemFilterSchema.safeParse({
     q: firstParam(sp.q),
@@ -41,7 +56,7 @@ export default async function ItemsPage({
     status: firstParam(sp.status),
     tagId: firstParam(sp.tag),
   });
-  const filter = parsed.success ? parsed.data : {};
+  const filter: ItemFilter = parsed.success ? parsed.data : {};
   const hasFilters =
     Boolean(filter.q) ||
     Boolean(filter.type) ||
@@ -49,11 +64,48 @@ export default async function ItemsPage({
     Boolean(filter.tagId);
 
   const user = await requireUser();
-  const [items, tags] = await Promise.all([
-    listItems(user.id, filter),
-    listTags(user.id),
-  ]);
 
+  if (hasFilters) {
+    return <ItemsContentFiltered userId={user.id} filter={filter} />;
+  }
+  return <ItemsContentEmpty userId={user.id} />;
+}
+
+async function ItemsContentEmpty({ userId }: { userId: string }) {
+  "use cache";
+  cacheTag(itemsCache.tagFor(userId));
+  cacheTag(tagsCache.tagFor(userId));
+
+  const [items, tags] = await Promise.all([listItems(userId, {}), listTags(userId)]);
+  return <ItemsView items={items} tags={tags} hasFilters={false} />;
+}
+
+async function ItemsContentFiltered({
+  userId,
+  filter,
+}: {
+  userId: string;
+  filter: ItemFilter;
+}) {
+  const [items, tags] = await Promise.all([
+    listItems(userId, filter),
+    listTags(userId),
+  ]);
+  return <ItemsView items={items} tags={tags} hasFilters={true} />;
+}
+
+type ItemViewRow = Awaited<ReturnType<typeof listItems>>[number];
+type TagViewRow = Awaited<ReturnType<typeof listTags>>[number];
+
+function ItemsView({
+  items,
+  tags,
+  hasFilters,
+}: {
+  items: ItemViewRow[];
+  tags: TagViewRow[];
+  hasFilters: boolean;
+}) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -144,7 +196,7 @@ export default async function ItemsPage({
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
-                    {formatRelative(item.updatedAt)}
+                    <RelativeTime iso={item.updatedAt} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -154,15 +206,4 @@ export default async function ItemsPage({
       )}
     </div>
   );
-}
-
-function formatRelative(date: Date | string): string {
-  // unstable_cache serializes Date as a string; coerce defensively.
-  const d = date instanceof Date ? date : new Date(date);
-  const diffMs = Date.now() - d.getTime();
-  const day = 86_400_000;
-  if (diffMs < day) return "Today";
-  if (diffMs < day * 2) return "Yesterday";
-  if (diffMs < day * 7) return `${Math.floor(diffMs / day)}d ago`;
-  return d.toLocaleDateString();
 }

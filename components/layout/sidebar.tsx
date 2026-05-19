@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen, LayoutDashboard, ListTodo, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LinkPending } from "./link-pending";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -34,6 +35,7 @@ export function Sidebar() {
             >
               <Icon className="size-4" />
               {label}
+              <LinkPending />
             </Link>
           );
         })}

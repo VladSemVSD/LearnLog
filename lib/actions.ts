@@ -1,8 +1,8 @@
 import "server-only";
 
-import { updateTag } from "next/cache";
 import { z, type ZodError, type ZodTypeAny } from "zod";
 import { requireUser } from "@/features/auth/server";
+import type { CacheNamespace } from "@/lib/cache";
 
 /**
  * The action runner — the single module that owns the server-action contract.
@@ -11,8 +11,9 @@ import { requireUser } from "@/features/auth/server";
  *   - schema:      Zod input shape
  *   - service:     (userId, parsedInput) => Promise<T | null>
  *                  (null means "not found / not yours" — the runner translates)
- *   - invalidates: cache-namespace prefixes; runner appends `:${userId}` and
- *                  calls updateTag for each (Next 16 read-your-own-writes)
+ *   - invalidates: CacheNamespace[] — runner calls `.invalidate(userId)` on
+ *                  each after the write; namespaces own cross-namespace
+ *                  cascades (see lib/cache.ts).
  *   - map:         (T) => actionData — shape the success envelope
  *
  * The runner owns:
@@ -77,7 +78,7 @@ function fieldErrorsFrom(error: ZodError): Record<string, string[]> {
 
 type DefineActionConfig<S extends ZodTypeAny, T, R> = {
   schema: S;
-  invalidates?: readonly string[];
+  invalidates?: readonly CacheNamespace[];
   service: (userId: string, input: z.output<S>) => Promise<T | null>;
   map: (result: T) => R;
 };
@@ -110,8 +111,8 @@ export function defineAction<S extends ZodTypeAny, T, R>(
       return { ok: false, error: "Not found." };
     }
 
-    for (const prefix of config.invalidates ?? []) {
-      updateTag(`${prefix}:${user.id}`);
+    for (const namespace of config.invalidates ?? []) {
+      namespace.invalidate(user.id);
     }
 
     return { ok: true, data: config.map(result) };

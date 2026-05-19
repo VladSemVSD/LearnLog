@@ -1,6 +1,7 @@
 "use server";
 
 import { defineAction } from "@/lib/actions";
+import { itemsCache } from "../cache";
 import {
   createItem,
   deleteItem,
@@ -18,32 +19,32 @@ import {
   updateItemStatusSchema,
 } from "../schema";
 
-const ITEMS = "items" as const;
+const writesItems = [itemsCache] as const;
 
 export const createItemAction = defineAction({
   schema: createItemSchema,
-  invalidates: [ITEMS],
+  invalidates: writesItems,
   service: (userId, input) => createItem(userId, input),
   map: (item) => ({ id: item.id }),
 });
 
 export const updateItemAction = defineAction({
   schema: updateItemSchema,
-  invalidates: [ITEMS],
+  invalidates: writesItems,
   service: (userId, input) => updateItem(userId, input),
   map: (item) => ({ id: item.id }),
 });
 
 export const deleteItemAction = defineAction({
   schema: deleteItemSchema,
-  invalidates: [ITEMS],
+  invalidates: writesItems,
   service: (userId, input) => deleteItem(userId, input.id),
   map: (result) => ({ id: result.id }),
 });
 
 export const updateItemStatusAction = defineAction({
   schema: updateItemStatusSchema,
-  invalidates: [ITEMS],
+  invalidates: writesItems,
   service: (userId, input) =>
     updateItemStatus(userId, input.id, input.status),
   map: (item) => ({ id: item.id }),
@@ -51,7 +52,7 @@ export const updateItemStatusAction = defineAction({
 
 export const updateItemProgressAction = defineAction({
   schema: updateItemProgressSchema,
-  invalidates: [ITEMS],
+  invalidates: writesItems,
   service: (userId, input) =>
     updateItemProgress(userId, input.id, input.progressPercent),
   map: (result) => ({
@@ -63,7 +64,7 @@ export const updateItemProgressAction = defineAction({
 
 export const updateItemNotesAction = defineAction({
   schema: updateItemNotesSchema,
-  invalidates: [ITEMS],
+  invalidates: writesItems,
   service: (userId, input) => updateItemNotes(userId, input.id, input.notes),
   map: (item) => ({ id: item.id }),
 });
