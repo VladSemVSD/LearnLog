@@ -7,7 +7,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
-import { ItemStatus, ItemType } from "@/lib/generated/prisma/client";
+import { ItemStatus, ItemType } from "@/lib/generated/prisma/enums";
 
 export const TYPE_LABEL: Record<ItemType, string> = {
   [ItemType.PROJECT]: "Project",
