@@ -13,9 +13,14 @@ const nextConfig: NextConfig = {
   experimental: {
     /**
      * Keep the client Router Cache for dynamic routes warm for 30s after a
-     * visit. In-app mutations call `router.refresh()` so they bypass the
-     * stale window; only external mutations (Prisma Studio, another tab)
-     * are subject to it.
+     * visit. Without this, every navigation does an RSC roundtrip — the
+     * server returns the cached payload fast, but the Suspense fallback
+     * (items/loading.tsx) flashes during transit. This makes second visits
+     * within 30s entirely client-side, no network at all.
+     *
+     * In-app mutations call `router.refresh()` so they bypass the stale
+     * window; only external mutations (Prisma Studio, another tab) are
+     * subject to it.
      *
      * Ref: https://nextjs.org/docs/app/api-reference/config/next-config-js/staleTimes
      */

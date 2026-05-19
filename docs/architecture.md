@@ -67,7 +67,7 @@ files (`features/<f>/server/actions.ts`) declare actions via `defineAction`:
 ```ts
 export const createItemAction = defineAction({
   schema: createItemSchema,
-  invalidates: ["items"],       // cache namespace prefixes; runner appends `:${userId}`
+  invalidates: [itemsCache],    // cache namespace objects; runner calls .invalidate(userId)
   service: (userId, input) => createItem(userId, input),
   map: (item) => ({ id: item.id }),
 });
@@ -79,8 +79,8 @@ The runner handles, in order, for every action:
 2. `schema.safeParse(input)` — returns `fieldErrors` on failure
 3. Calls the `service` lambda with `(userId, parsedInput)`
 4. If the service returns `null` → `{ ok: false, error: "Not found." }`
-5. Calls `updateTag` for each `${prefix}:${userId}` in `invalidates`
-   (Next 16's read-your-own-writes API for `unstable_cache` tags)
+5. Calls `namespace.invalidate(userId)` for each entry in `invalidates`
+   (the namespace fires `updateTag` for its own tag + any declared cascades)
 6. Returns `{ ok: true, data: map(result) }`
 
 Domain-error short-circuit: a service lambda can `throw new ActionError({error,
@@ -90,11 +90,32 @@ detect P2002.
 
 ## Caching
 
-Reads are wrapped in **cache namespaces** (`lib/cache.ts` → `createCacheNamespace`). Each feature owns its namespace: `itemsCache` in `features/learning-items/cache.ts`, `tagsCache` in `features/tags/cache.ts`. The namespace owns the tag format (`${key}:${userId}` — user-scoped), the default TTL (1 hour), and any cross-namespace **cascades**.
+Page-render caching via Next 16's `"use cache"` directive (gated by the top-level `cacheComponents` flag in `next.config.ts`). The cached subtree is the rendered RSC payload — DB result + JSX — keyed by its arguments and invalidated by tag. Full decision in `docs/adr/0001-use-cache-render-level.md`.
 
-Cascades are declared inline: `tagsCache` cascades to `itemsCache` because tag chips render on item rows. When a server action invalidates `tagsCache`, both tags and items get refreshed; the rule lives next to the cache, not in the action.
+**Cache namespaces** (`lib/cache.ts` → `createCacheNamespace`) are the single source of truth for the tag string. Each feature owns one: `itemsCache` in `features/learning-items/cache.ts`, `tagsCache` in `features/tags/cache.ts`. The namespace exposes `tagFor(userId)` for readers and `invalidate(userId)` for writers; both resolve to the same per-user string (`${key}:${userId}`) so they cannot drift.
 
-Services call `namespace.wrap(userId, keyParts, fn)` instead of `unstable_cache` directly. Actions list which namespaces they write to via the runner's `invalidates` field. Cascades are one-level, not transitive.
+Cascades are declared inline: `tagsCache.cascadesTo = [itemsCache]` because tag chips render on item rows. When a server action invalidates `tagsCache`, items get refreshed too; the rule lives next to the cache, not in the action. One-level only — cascades are not transitive.
+
+Each cached page follows the shape:
+
+```tsx
+export default function Page() {
+  return <Suspense fallback={<...>}><Loader /></Suspense>;
+}
+async function Loader() {                          // dynamic — reads cookies/params
+  const user = await requireUser();
+  return <Content userId={user.id} />;
+}
+async function Content({ userId }) {
+  "use cache";
+  cacheTag(itemsCache.tagFor(userId));             // declares dependency
+  // ... fetch + JSX
+}
+```
+
+Services (`features/<f>/service.ts`) are plain Prisma — no caching wrappers. Reads come only from cached page subtrees, never from actions. `cacheLife` is left at the Next default (15-min revalidate) as a safety net for future out-of-band writes.
+
+The items page caches only the no-filter render path; any filter (including free-text `q`) renders dynamically to avoid cache-entry proliferation. Client navigation is kept warm by `experimental.staleTimes.dynamic: 30` — without it, every nav does an RSC roundtrip even on a server cache hit.
 
 ## Auth
 
@@ -105,4 +126,4 @@ BetterAuth + Prisma adapter, email/password. Sessions in DB. The `(app)` layout 
 - New item types → add enum value, ship.
 - Roadmaps → new table referencing `LearningItem.id`; no schema churn elsewhere.
 - AI features → new feature folder, consumes `service.ts` like any UI does.
-- Analytics → new aggregate queries in `features/<feature>/server/queries.ts`; no new tables initially.
+- Analytics → new aggregate queries in `features/<feature>/service.ts`; no new tables initially.
