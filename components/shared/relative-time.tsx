@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const DAY_MS = 86_400_000;
 
@@ -12,21 +12,28 @@ function formatRelative(date: Date): string {
   return date.toLocaleDateString();
 }
 
+// No external state to subscribe to — useSyncExternalStore's third arg
+// (server snapshot) is what we actually want: it forces the SSR/initial-client
+// render to use the absolute date, then post-hydration uses the relative form.
+function noopSubscribe(): () => void {
+  return () => {};
+}
+
 /**
- * Renders a date as a relative string ("today" / "5d ago"). The SSR path
- * emits the absolute date so the cached RSC payload stays meaningful and
- * doesn't go stale; the client swaps to the relative form on mount.
+ * Renders a date as a relative string ("today" / "5d ago"). SSR / initial
+ * hydration use the absolute date so the cached RSC payload stays meaningful;
+ * post-hydration uses the relative form.
  *
- * Lives on the client because `formatRelative` reads `Date.now()`, which
- * would freeze if it ran inside a `"use cache"` subtree.
+ * `useSyncExternalStore`'s two snapshot args give us the SSR / client
+ * divergence without a `useEffect + setState` pattern (which triggers the
+ * `react-hooks/set-state-in-effect` lint rule).
  */
 export function RelativeTime({ iso }: { iso: string | Date }) {
   const date = iso instanceof Date ? iso : new Date(iso);
-  const [text, setText] = useState(() => date.toLocaleDateString());
-
-  useEffect(() => {
-    setText(formatRelative(date));
-  }, [date]);
-
+  const text = useSyncExternalStore(
+    noopSubscribe,
+    () => formatRelative(date),
+    () => date.toLocaleDateString(),
+  );
   return <span suppressHydrationWarning>{text}</span>;
 }

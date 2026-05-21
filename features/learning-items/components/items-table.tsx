@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ExternalLink } from "lucide-react";
 import {
@@ -78,12 +78,10 @@ export function ItemsTable({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const editorRef = useRef<SaveStateProviderHandle>(null);
 
-  // If the currently-expanded item disappears (delete, filter change), collapse.
-  useEffect(() => {
-    if (expandedId && !items.some((i) => i.id === expandedId)) {
-      setExpandedId(null);
-    }
-  }, [items, expandedId]);
+  // If the currently-expanded item disappears (delete, filter change), the
+  // RowGroup for it stops rendering, the editor unmounts, and editorRef
+  // clears to null. expandedId stays as a stale id in state but nothing
+  // renders against it; the next user click overwrites it. No effect needed.
 
   async function toggle(id: string) {
     // Flush any dirty debounce buffers in the currently-expanded editor before
