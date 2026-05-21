@@ -22,6 +22,7 @@ import {
   deleteTagAction,
   updateTagAction,
 } from "../server/actions";
+import { ColorInput } from "./color-input";
 
 type Tag = { id: string; name: string; color: string | null };
 
@@ -84,18 +85,13 @@ function TagRow({ tag }: { tag: Tag }) {
           style={{ backgroundColor: tag.color ?? "var(--muted-foreground)" }}
         />
         {editing ? (
-          <div className="flex flex-1 gap-2">
+          <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="max-w-xs"
             />
-            <Input
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              placeholder="#aabbcc"
-              className="max-w-32"
-            />
+            <ColorInput value={color} onChange={setColor} />
           </div>
         ) : (
           <span className="font-medium">{tag.name}</span>
@@ -194,11 +190,7 @@ function CreateTagDialog() {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm">Color (optional)</Label>
-            <Input
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              placeholder="#3b82f6"
-            />
+            <ColorInput value={color} onChange={setColor} />
           </div>
         </div>
         <DialogFooter>

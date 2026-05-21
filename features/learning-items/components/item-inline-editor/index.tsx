@@ -67,36 +67,29 @@ export function ItemInlineEditor({
   return (
     <SaveStateProvider ref={ref}>
       <div className="flex flex-col gap-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
-              <TypeIcon className="size-3.5" />
-              {TYPE_LABEL[item.type]}
-            </div>
-            <InlineText
-              itemId={item.id}
-              field="title"
-              initialValue={item.title}
-              placeholder="Untitled"
-              className="text-lg font-semibold"
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              <InlineStatus itemId={item.id} initialValue={item.status} />
-              <span className="text-muted-foreground text-xs">Priority</span>
-              <InlineSelect
-                itemId={item.id}
-                initialValue={String(item.priority)}
-                options={PRIORITY_OPTIONS}
-                buildPatch={(raw) => ({ priority: Number(raw) })}
-                triggerClassName="h-7 w-auto text-xs"
-              />
-            </div>
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+            <TypeIcon className="size-3.5" />
+            {TYPE_LABEL[item.type]}
           </div>
-          {showDelete ? (
-            <div className="flex items-center gap-2">
-              <DeleteItemButton itemId={item.id} />
-            </div>
-          ) : null}
+          <InlineText
+            itemId={item.id}
+            field="title"
+            initialValue={item.title}
+            placeholder="Untitled"
+            className="text-lg font-semibold"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <InlineStatus itemId={item.id} initialValue={item.status} />
+            <span className="text-muted-foreground text-xs">Priority</span>
+            <InlineSelect
+              itemId={item.id}
+              initialValue={String(item.priority)}
+              options={PRIORITY_OPTIONS}
+              buildPatch={(raw) => ({ priority: Number(raw) })}
+              triggerClassName="h-7 w-auto text-xs"
+            />
+          </div>
         </div>
 
         <FieldRow label="Description">
@@ -200,8 +193,9 @@ export function ItemInlineEditor({
 
         <NotesSection itemId={item.id} initialNotes={item.notes ?? ""} />
 
-        <div className="flex justify-end pt-2">
+        <div className="flex items-center justify-end gap-3 pt-2">
           <AutosaveFooter />
+          {showDelete ? <DeleteItemButton itemId={item.id} /> : null}
         </div>
       </div>
     </SaveStateProvider>
