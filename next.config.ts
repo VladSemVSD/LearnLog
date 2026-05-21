@@ -1,32 +1,24 @@
 import type { NextConfig } from "next";
 
+const securityHeaders = [
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+];
+
 const nextConfig: NextConfig = {
-  /**
-   * Gates the `"use cache"` directive + `cacheTag` / `cacheLife` APIs.
-   * With this on, the default rendering mode is static — components that
-   * read cookies/headers/params/searchParams must sit inside `<Suspense>`
-   * boundaries (or be explicitly marked dynamic). See
-   * docs/adr/0001-use-cache-render-level.md for the broader decision.
-   */
   cacheComponents: true,
 
   experimental: {
-    /**
-     * Keep the client Router Cache for dynamic routes warm for 30s after a
-     * visit. Without this, every navigation does an RSC roundtrip — the
-     * server returns the cached payload fast, but the Suspense fallback
-     * (items/loading.tsx) flashes during transit. This makes second visits
-     * within 30s entirely client-side, no network at all.
-     *
-     * In-app mutations call `router.refresh()` so they bypass the stale
-     * window; only external mutations (Prisma Studio, another tab) are
-     * subject to it.
-     *
-     * Ref: https://nextjs.org/docs/app/api-reference/config/next-config-js/staleTimes
-     */
     staleTimes: {
       dynamic: 30,
     },
+  },
+
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
   },
 };
 
