@@ -1,14 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { updateItemFieldsAction } from "../../server/actions";
 import type { UpdateItemFieldsInput } from "../../schema";
-import { useSaveState } from "./save-state-context";
-
-const DEBOUNCE_MS = 500;
+import { useAutosaveField } from "./use-autosave-field";
 
 type NumberField = "estimatedHours" | "actualHours";
+
+function parseValue(s: string): number | null {
+  if (s.trim() === "") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function stringifyValue(n: number | null): string {
+  return n === null ? "" : String(n);
+}
 
 export function InlineNumber({
   itemId,
@@ -25,91 +33,35 @@ export function InlineNumber({
   min?: number;
   step?: number | string;
 }) {
-  const [raw, setRaw] = useState<string>(
-    initialValue === null ? "" : String(initialValue),
-  );
-  const savedRef = useRef<number | null>(initialValue);
-  const rawRef = useRef(raw);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [, startTransition] = useTransition();
-  const { markSaving, markSaved, markError, registerFlush, setLastAttempt } =
-    useSaveState();
+  const autosave = useAutosaveField<number | null>({
+    initial: initialValue,
+    commitOn: { on: "debounce", ms: 500 },
+    save: (next) => {
+      const patch = { [field]: next } as UpdateItemFieldsInput["patch"];
+      return updateItemFieldsAction({ id: itemId, patch });
+    },
+    pickFieldError: (errs) => errs[field]?.[0],
+  });
 
-  function clearTimer() {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }
-
-  function parseValue(s: string): number | null {
-    if (s.trim() === "") return null;
-    const n = Number(s);
-    return Number.isFinite(n) ? n : null;
-  }
-
-  function performSave(nextRaw: string): Promise<void> {
-    const next = parseValue(nextRaw);
-    if (next === savedRef.current) return Promise.resolve();
-    clearTimer();
-    const attempt = () =>
-      new Promise<void>((resolve) => {
-        startTransition(async () => {
-          markSaving();
-          const patch = { [field]: next } as UpdateItemFieldsInput["patch"];
-          const result = await updateItemFieldsAction({
-            id: itemId,
-            patch,
-          });
-          if (result.ok) {
-            savedRef.current = next;
-            markSaved();
-          } else {
-            markError(
-              result.fieldErrors?.[field]?.[0] ?? result.error,
-            );
-          }
-          resolve();
-        });
-      });
-    setLastAttempt(attempt);
-    return attempt();
-  }
+  // Raw string holds intermediate input states ("12.") that the parsed number can't represent.
+  const [raw, setRaw] = useState<string>(stringifyValue(initialValue));
 
   function onChange(e: React.ChangeEvent<HTMLInputElement>) {
     const next = e.target.value;
     setRaw(next);
-    rawRef.current = next;
-    clearTimer();
-    timerRef.current = setTimeout(() => {
-      void performSave(next);
-    }, DEBOUNCE_MS);
+    autosave.setValue(parseValue(next));
   }
 
   function onBlur() {
-    void performSave(rawRef.current);
+    void autosave.commit();
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Escape") {
-      const reverted =
-        savedRef.current === null ? "" : String(savedRef.current);
-      setRaw(reverted);
-      rawRef.current = reverted;
-      clearTimer();
+      const reverted = autosave.revert();
+      setRaw(stringifyValue(reverted));
     }
   }
-
-  useEffect(() => {
-    return registerFlush(async () => {
-      if (parseValue(rawRef.current) !== savedRef.current) {
-        await performSave(rawRef.current);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => () => clearTimer(), []);
 
   return (
     <Input

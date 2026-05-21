@@ -19,7 +19,8 @@ import type { SaveStateProviderHandle } from "./item-inline-editor/save-state-co
 import { ProgressBar } from "./progress-bar";
 import { StatusBadge } from "./status-badge";
 import { TYPE_LABEL } from "../constants";
-import type { ItemSort } from "../schema";
+import { serializeItemsFilter } from "../items-search-params";
+import { DEFAULT_ITEM_SORT, type ItemFilter, type ItemSort } from "../schema";
 import type { listItems } from "../service";
 import type { listTags } from "@/features/tags/service";
 
@@ -58,8 +59,8 @@ function activeDirection(
   return null;
 }
 
-function buildSortHref(filterSearchString: string, sort: ItemSort): string {
-  const params = new URLSearchParams(filterSearchString);
+function buildSortHref(filter: ItemFilter, sort: ItemSort): string {
+  const params = serializeItemsFilter(filter, { keepSort: false });
   params.set("sort", sort);
   return `/items?${params.toString()}`;
 }
@@ -67,14 +68,13 @@ function buildSortHref(filterSearchString: string, sort: ItemSort): string {
 export function ItemsTable({
   items,
   tags,
-  currentSort,
-  filterSearchString,
+  filter,
 }: {
   items: Item[];
   tags: Tag[];
-  currentSort: ItemSort;
-  filterSearchString: string;
+  filter: ItemFilter;
 }) {
+  const currentSort: ItemSort = filter.sort ?? DEFAULT_ITEM_SORT;
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const editorRef = useRef<SaveStateProviderHandle>(null);
 
@@ -113,7 +113,7 @@ export function ItemsTable({
                 label="Title"
                 column="title"
                 currentSort={currentSort}
-                filterSearchString={filterSearchString}
+                filter={filter}
               />
             </TableHead>
             <TableHead className="w-32">Type</TableHead>
@@ -123,7 +123,7 @@ export function ItemsTable({
                 label="Priority"
                 column="priority"
                 currentSort={currentSort}
-                filterSearchString={filterSearchString}
+                filter={filter}
               />
             </TableHead>
             <TableHead className="w-40">Progress</TableHead>
@@ -132,7 +132,7 @@ export function ItemsTable({
                 label="Updated"
                 column="updated"
                 currentSort={currentSort}
-                filterSearchString={filterSearchString}
+                filter={filter}
               />
             </TableHead>
             <TableHead className="w-10" aria-label="Open detail" />
@@ -248,15 +248,15 @@ function SortHeader({
   label,
   column,
   currentSort,
-  filterSearchString,
+  filter,
 }: {
   label: string;
   column: SortableColumn;
   currentSort: ItemSort;
-  filterSearchString: string;
+  filter: ItemFilter;
 }) {
   const direction = activeDirection(column, currentSort);
-  const href = buildSortHref(filterSearchString, nextSortFor(column, currentSort));
+  const href = buildSortHref(filter, nextSortFor(column, currentSort));
   return (
     <Link
       href={href}

@@ -41,6 +41,14 @@ The single module (`lib/actions.ts`) that owns the server-action contract — `r
 **Swap point**:
 A re-export boundary where an interface-stable component can be substituted without consumer changes. Today only one: `features/learning-items/components/notes-editor/index.tsx` (Tiptap today, AI tomorrow).
 
+**Autosave field**:
+A per-input controller used by the **LearningItem** inline editor. One `useAutosaveField<T>` hook per input coordinates debounce / commit / revert and reports into the surrounding `SaveStateProvider`. The `commitOn` trigger selects timing (`{ on: 'debounce', ms }` for text/number, `{ on: 'change' }` for selects, `{ on: 'manual' }` for the progress slider which commits on release).
+_Avoid_: field component (describes the leaf JSX), autosave widget.
+
+**Tag mutation controller**:
+A hook (`useTagMutations`) that wraps every **Tag** server action with one shared `useTransition` and the toast surface. Views call `create / rename / remove / attach / detach / createAndAttach` and stay layout-only; the controller owns the action → toast pipeline. Default success messages are overridable via `opts.successMessage`.
+_Avoid_: tag service hook (service is server-side), tag mutator.
+
 ## Relationships
 
 - A **LearningItem** has exactly one **Type**, exactly one **Status**, and any number of **Tag**s.

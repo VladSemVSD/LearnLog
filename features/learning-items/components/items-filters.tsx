@@ -14,11 +14,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { STATUS_LABEL, TYPE_LABEL } from "../constants";
+import { parseItemsURLSearchParams } from "../items-search-params";
 
 type AvailableTag = { id: string; name: string };
 
 const ALL = "__all__";
 const SEARCH_DEBOUNCE_MS = 250;
+
+type FilterKey = "q" | "type" | "status" | "tag";
 
 export function ItemsFilters({
   availableTags,
@@ -29,17 +32,18 @@ export function ItemsFilters({
   const params = useSearchParams();
   const [, startTransition] = useTransition();
 
-  const initialQ = params.get("q") ?? "";
+  const filter = parseItemsURLSearchParams(params);
+  const initialQ = filter.q ?? "";
   const [q, setQ] = useState(initialQ);
 
-  const type = params.get("type") ?? ALL;
-  const status = params.get("status") ?? ALL;
-  const tagId = params.get("tag") ?? ALL;
+  const type = filter.type ?? ALL;
+  const status = filter.status ?? ALL;
+  const tagId = filter.tagId ?? ALL;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updateParam = useCallback(
-    (key: string, value: string | null) => {
+    (key: FilterKey, value: string | null) => {
       const next = new URLSearchParams(params.toString());
       if (!value || value === ALL) next.delete(key);
       else next.set(key, value);

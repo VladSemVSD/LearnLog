@@ -1,28 +1,20 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Check, Pencil, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { useMemo, useState } from "react";
+import { Plus, Tag as TagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import {
-  attachTagAction,
-  createTagAction,
-  deleteTagAction,
-  detachTagAction,
-  updateTagAction,
-} from "../server/actions";
+import { useTagMutations } from "../use-tag-mutations";
 import { ColorInput } from "./color-input";
+import { TagRow } from "./tag-row";
 
 export type PickerTag = {
   id: string;
@@ -42,8 +34,7 @@ export function TagPicker({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [color, setColor] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const { attach, detach, createAndAttach, isPending } = useTagMutations();
   const attachedSet = useMemo(() => new Set(attachedIds), [attachedIds]);
 
   const filtered = useMemo(() => {
@@ -62,40 +53,26 @@ export function TagPicker({
   const canCreate = name.trim().length > 0 && !exactMatch;
 
   function toggle(tagId: string) {
-    if (editingId === tagId) return;
     const isAttached = attachedSet.has(tagId);
-    startTransition(async () => {
-      const result = isAttached
-        ? await detachTagAction({ itemId, tagId })
-        : await attachTagAction({ itemId, tagId });
-      if (!result.ok) toast.error(result.error);
-    });
+    if (isAttached) {
+      void detach({ itemId, tagId });
+    } else {
+      void attach({ itemId, tagId });
+    }
   }
 
-  function handleCreate() {
+  async function handleCreate() {
     const trimmed = name.trim();
     if (!trimmed) return;
-    startTransition(async () => {
-      const created = await createTagAction({
-        name: trimmed,
-        color: color || null,
-      });
-      if (!created.ok) {
-        toast.error(created.error);
-        return;
-      }
-      const attached = await attachTagAction({
-        itemId,
-        tagId: created.data.id,
-      });
-      if (!attached.ok) {
-        toast.error(attached.error);
-        return;
-      }
+    const result = await createAndAttach({
+      itemId,
+      name: trimmed,
+      color: color || null,
+    });
+    if (result.ok) {
       setName("");
       setColor("");
-      toast.success(`Added "${created.data.name}"`);
-    });
+    }
   }
 
   return (
@@ -125,7 +102,7 @@ export function TagPicker({
           onKeyDown={(e) => {
             if (e.key === "Enter" && canCreate) {
               e.preventDefault();
-              handleCreate();
+              void handleCreate();
             }
           }}
         />
@@ -141,14 +118,11 @@ export function TagPicker({
                 <TagRow
                   key={tag.id}
                   tag={tag}
-                  attached={attachedSet.has(tag.id)}
-                  isEditing={editingId === tag.id}
-                  someoneElseEditing={editingId !== null && editingId !== tag.id}
-                  disabled={isPending}
-                  onToggle={() => toggle(tag.id)}
-                  onStartEdit={() => setEditingId(tag.id)}
-                  onCancelEdit={() => setEditingId(null)}
-                  onSaved={() => setEditingId(null)}
+                  attachState={{
+                    attached: attachedSet.has(tag.id),
+                    onToggle: () => toggle(tag.id),
+                    disabled: isPending,
+                  }}
                 />
               ))}
             </ul>
@@ -161,7 +135,7 @@ export function TagPicker({
             <Button
               type="button"
               variant="outline"
-              onClick={handleCreate}
+              onClick={() => void handleCreate()}
               disabled={isPending}
               className="w-full justify-start"
             >
@@ -176,185 +150,6 @@ export function TagPicker({
             </Button>
           </div>
         ) : null}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function TagRow({
-  tag,
-  attached,
-  isEditing,
-  someoneElseEditing,
-  disabled,
-  onToggle,
-  onStartEdit,
-  onCancelEdit,
-  onSaved,
-}: {
-  tag: PickerTag;
-  attached: boolean;
-  isEditing: boolean;
-  someoneElseEditing: boolean;
-  disabled: boolean;
-  onToggle: () => void;
-  onStartEdit: () => void;
-  onCancelEdit: () => void;
-  onSaved: () => void;
-}) {
-  const [editName, setEditName] = useState(tag.name);
-  const [editColor, setEditColor] = useState(tag.color ?? "");
-  const [isPending, startTransition] = useTransition();
-
-  function save() {
-    if (!editName.trim()) return;
-    startTransition(async () => {
-      const result = await updateTagAction({
-        id: tag.id,
-        name: editName.trim(),
-        color: editColor || null,
-      });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Tag updated");
-      onSaved();
-    });
-  }
-
-  function cancel() {
-    setEditName(tag.name);
-    setEditColor(tag.color ?? "");
-    onCancelEdit();
-  }
-
-  if (isEditing) {
-    return (
-      <li className="bg-muted/40 -mx-1 flex flex-col gap-2 rounded-md px-2 py-2">
-        <Input
-          value={editName}
-          onChange={(e) => setEditName(e.target.value)}
-          className="h-8"
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              save();
-            }
-            if (e.key === "Escape") cancel();
-          }}
-        />
-        <ColorInput value={editColor} onChange={setEditColor} />
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={cancel}
-            disabled={isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={save}
-            disabled={isPending || !editName.trim()}
-          >
-            {isPending ? "…" : "Save"}
-          </Button>
-        </div>
-      </li>
-    );
-  }
-
-  return (
-    <li className="group">
-      <div
-        className={cn(
-          "hover:bg-muted flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-          attached && "bg-muted/60",
-        )}
-      >
-        <button
-          type="button"
-          onClick={onToggle}
-          disabled={disabled || someoneElseEditing}
-          className="flex flex-1 items-center justify-between"
-        >
-          <span className="flex items-center gap-2">
-            {tag.color ? (
-              <span
-                className="inline-block size-2.5 rounded-full"
-                style={{ backgroundColor: tag.color }}
-              />
-            ) : (
-              <span className="bg-muted-foreground/30 inline-block size-2.5 rounded-full" />
-            )}
-            {tag.name}
-          </span>
-          {attached ? <Check className="text-primary size-3.5" /> : null}
-        </button>
-        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onStartEdit}
-            disabled={someoneElseEditing}
-            aria-label={`Rename ${tag.name}`}
-          >
-            <Pencil className="size-3" />
-          </Button>
-          <DeleteTagInline id={tag.id} name={tag.name} />
-        </div>
-      </div>
-    </li>
-  );
-}
-
-function DeleteTagInline({ id, name }: { id: string; name: string }) {
-  const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
-
-  function confirm() {
-    startTransition(async () => {
-      const result = await deleteTagAction({ id });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(`Tag "${name}" deleted`);
-      setOpen(false);
-    });
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button variant="ghost" size="icon-sm" aria-label={`Delete ${name}`}>
-            <Trash2 className="size-3" />
-          </Button>
-        }
-      />
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete tag &quot;{name}&quot;?</DialogTitle>
-          <DialogDescription>
-            Will detach from every item. Cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button
-            variant="ghost"
-            onClick={() => setOpen(false)}
-            disabled={isPending}
-          >
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={confirm} disabled={isPending}>
-            {isPending ? "Deleting…" : "Delete"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -7,11 +7,13 @@ import { listItems } from "@/features/learning-items/service";
 import { listTags } from "@/features/tags/service";
 import { itemsCache } from "@/features/learning-items/cache";
 import { tagsCache } from "@/features/tags/cache";
-import {
-  DEFAULT_ITEM_SORT,
-  itemFilterSchema,
-} from "@/features/learning-items/schema";
+import { DEFAULT_ITEM_SORT } from "@/features/learning-items/schema";
 import type { ItemFilter } from "@/features/learning-items/schema";
+import {
+  hasConstrainingItemsFilter,
+  itemsFilterIsUntouched,
+  parseItemsSearchParams,
+} from "@/features/learning-items/items-search-params";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ItemsFilters } from "@/features/learning-items/components/items-filters";
@@ -21,11 +23,6 @@ import ItemsLoading from "./loading";
 export const metadata = { title: "Items · Learning Portal" };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-
-function firstParam(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) return value[0];
-  return value;
-}
 
 export default function ItemsPage({
   searchParams,
@@ -41,29 +38,13 @@ export default function ItemsPage({
 
 async function ItemsLoader({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const parsed = itemFilterSchema.safeParse({
-    q: firstParam(sp.q),
-    type: firstParam(sp.type),
-    status: firstParam(sp.status),
-    tagId: firstParam(sp.tag),
-    sort: firstParam(sp.sort),
-  });
-  const filter: ItemFilter = parsed.success
-    ? parsed.data
-    : { sort: DEFAULT_ITEM_SORT };
-  const isUntouched =
-    !filter.q &&
-    !filter.type &&
-    !filter.status &&
-    !filter.tagId &&
-    filter.sort === DEFAULT_ITEM_SORT;
-
+  const filter = parseItemsSearchParams(sp);
   const user = await requireUser();
 
-  if (!isUntouched) {
-    return <ItemsContentFiltered userId={user.id} filter={filter} />;
+  if (itemsFilterIsUntouched(filter)) {
+    return <ItemsContentEmpty userId={user.id} />;
   }
-  return <ItemsContentEmpty userId={user.id} />;
+  return <ItemsContentFiltered userId={user.id} filter={filter} />;
 }
 
 async function ItemsContentEmpty({ userId }: { userId: string }) {
@@ -77,8 +58,7 @@ async function ItemsContentEmpty({ userId }: { userId: string }) {
       items={items}
       tags={tags}
       hasConstrainingFilter={false}
-      currentSort={DEFAULT_ITEM_SORT}
-      filterSearchString=""
+      filter={{ sort: DEFAULT_ITEM_SORT }}
     />
   );
 }
@@ -94,21 +74,12 @@ async function ItemsContentFiltered({
     listItems(userId, filter),
     listTags(userId),
   ]);
-  const hasConstrainingFilter = Boolean(
-    filter.q || filter.type || filter.status || filter.tagId,
-  );
-  const params = new URLSearchParams();
-  if (filter.q) params.set("q", filter.q);
-  if (filter.type) params.set("type", filter.type);
-  if (filter.status) params.set("status", filter.status);
-  if (filter.tagId) params.set("tag", filter.tagId);
   return (
     <ItemsView
       items={items}
       tags={tags}
-      hasConstrainingFilter={hasConstrainingFilter}
-      currentSort={filter.sort ?? DEFAULT_ITEM_SORT}
-      filterSearchString={params.toString()}
+      hasConstrainingFilter={hasConstrainingItemsFilter(filter)}
+      filter={filter}
     />
   );
 }
@@ -120,14 +91,12 @@ function ItemsView({
   items,
   tags,
   hasConstrainingFilter,
-  currentSort,
-  filterSearchString,
+  filter,
 }: {
   items: ItemViewRow[];
   tags: TagViewRow[];
   hasConstrainingFilter: boolean;
-  currentSort: ItemFilter["sort"];
-  filterSearchString: string;
+  filter: ItemFilter;
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -169,12 +138,7 @@ function ItemsView({
           />
         )
       ) : (
-        <ItemsTable
-          items={items}
-          tags={tags}
-          currentSort={currentSort ?? DEFAULT_ITEM_SORT}
-          filterSearchString={filterSearchString}
-        />
+        <ItemsTable items={items} tags={tags} filter={filter} />
       )}
     </div>
   );
