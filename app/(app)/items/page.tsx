@@ -10,21 +10,9 @@ import { tagsCache } from "@/features/tags/cache";
 import { itemFilterSchema } from "@/features/learning-items/schema";
 import type { ItemFilter } from "@/features/learning-items/schema";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
-import { RelativeTime } from "@/components/shared/relative-time";
-import { StatusBadge } from "@/features/learning-items/components/status-badge";
-import { ProgressBar } from "@/features/learning-items/components/progress-bar";
 import { ItemsFilters } from "@/features/learning-items/components/items-filters";
-import { TagChip } from "@/features/tags/components/tag-chip";
-import { TYPE_LABEL } from "@/features/learning-items/constants";
+import { ItemsTable } from "@/features/learning-items/components/items-table";
 import ItemsLoading from "./loading";
 
 export const metadata = { title: "Items · Learning Portal" };
@@ -146,63 +134,7 @@ function ItemsView({
           />
         )
       ) : (
-        <div className="border-border bg-card overflow-hidden rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead className="w-32">Type</TableHead>
-                <TableHead className="w-32">Status</TableHead>
-                <TableHead className="w-40">Progress</TableHead>
-                <TableHead className="w-32">Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.id} className="relative cursor-pointer">
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <Link
-                        href={`/items/${item.id}`}
-                        className="font-medium before:absolute before:inset-0 before:content-['']"
-                      >
-                        {item.title}
-                      </Link>
-                      {item.tags.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {item.tags.map(({ tag }) => (
-                            <TagChip
-                              key={tag.id}
-                              name={tag.name}
-                              color={tag.color}
-                            />
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {TYPE_LABEL[item.type]}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={item.status} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <ProgressBar value={item.progressPercent} />
-                      <span className="text-muted-foreground w-9 text-right text-xs tabular-nums">
-                        {item.progressPercent}%
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    <RelativeTime iso={item.updatedAt} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <ItemsTable items={items} tags={tags} />
       )}
     </div>
   );
