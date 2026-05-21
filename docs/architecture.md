@@ -90,7 +90,7 @@ detect P2002.
 
 ## Caching
 
-Page-render caching via Next 16's `"use cache"` directive (gated by the top-level `cacheComponents` flag in `next.config.ts`). The cached subtree is the rendered RSC payload — DB result + JSX — keyed by its arguments and invalidated by tag. Full decision in `docs/adr/0001-use-cache-render-level.md`.
+Page-render caching via Next 16's `"use cache"` directive (gated by the top-level `cacheComponents` flag in `next.config.ts`). The cached subtree is the rendered RSC payload — DB result + JSX — keyed by its arguments and invalidated by tag.
 
 **Cache namespaces** (`lib/cache.ts` → `createCacheNamespace`) are the single source of truth for the tag string. Each feature owns one: `itemsCache` in `features/learning-items/cache.ts`, `tagsCache` in `features/tags/cache.ts`. The namespace exposes `tagFor(userId)` for readers and `invalidate(userId)` for writers; both resolve to the same per-user string (`${key}:${userId}`) so they cannot drift.
 
