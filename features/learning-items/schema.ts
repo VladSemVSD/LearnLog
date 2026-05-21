@@ -24,8 +24,25 @@ export const createItemSchema = z.object({
   notes: z.string().max(20_000).optional().nullable(),
 });
 
-export const updateItemSchema = createItemSchema.partial().extend({
+// Plain fields only — no lifecycle-affecting fields (status, progressPercent).
+// See docs/adr/0002-split-actions-along-lifecycle-boundary.md.
+const itemPlainPatchSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().max(2000).nullable().optional(),
+  type: z.enum(itemTypeValues).optional(),
+  priority: z.number().int().min(0).max(3).optional(),
+  estimatedHours: z.number().min(0).nullable().optional(),
+  actualHours: z.number().min(0).nullable().optional(),
+  sourceUrl: optionalUrl,
+  notes: z.string().max(20_000).nullable().optional(),
+});
+
+export const updateItemFieldsSchema = z.object({
   id: z.string().min(1),
+  patch: itemPlainPatchSchema.refine(
+    (p) => Object.keys(p).length > 0,
+    { message: "Patch must include at least one field" },
+  ),
 });
 
 export const updateItemStatusSchema = z.object({
@@ -38,26 +55,33 @@ export const updateItemProgressSchema = z.object({
   progressPercent: z.number().int().min(0).max(100),
 });
 
-export const updateItemNotesSchema = z.object({
-  id: z.string().min(1),
-  notes: z.string().max(20_000),
-});
-
 export const deleteItemSchema = z.object({
   id: z.string().min(1),
 });
 
 export type CreateItemInput = z.infer<typeof createItemSchema>;
-export type UpdateItemInput = z.infer<typeof updateItemSchema>;
+export type UpdateItemFieldsInput = z.infer<typeof updateItemFieldsSchema>;
 export type UpdateItemStatusInput = z.infer<typeof updateItemStatusSchema>;
 export type UpdateItemProgressInput = z.infer<typeof updateItemProgressSchema>;
-export type UpdateItemNotesInput = z.infer<typeof updateItemNotesSchema>;
+
+export const itemSortSchema = z.enum([
+  "updated-desc",
+  "updated-asc",
+  "priority-desc",
+  "priority-asc",
+  "completed-desc",
+  "title-asc",
+]);
+export type ItemSort = z.infer<typeof itemSortSchema>;
+
+export const DEFAULT_ITEM_SORT: ItemSort = "updated-desc";
 
 export const itemFilterSchema = z.object({
   q: z.string().optional(),
   type: z.enum(itemTypeValues).optional(),
   status: z.enum(itemStatusValues).optional(),
   tagId: z.string().optional(),
+  sort: itemSortSchema.optional().default(DEFAULT_ITEM_SORT),
 });
 
 export type ItemFilter = z.infer<typeof itemFilterSchema>;

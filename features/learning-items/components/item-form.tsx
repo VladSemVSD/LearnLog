@@ -1,3 +1,4 @@
+// Create-only. Editing is inline on /items/[id] via <ItemInlineEditor>.
 "use client";
 
 import { useTransition } from "react";
@@ -10,14 +11,8 @@ import { ItemStatus, ItemType } from "@/lib/generated/prisma/enums";
 import { createItemSchema } from "../schema";
 
 type ItemFormValues = z.input<typeof createItemSchema>;
-import {
-  STATUS_LABEL,
-  TYPE_LABEL,
-} from "../constants";
-import {
-  createItemAction,
-  updateItemAction,
-} from "../server/actions";
+import { STATUS_LABEL, TYPE_LABEL } from "../constants";
+import { createItemAction } from "../server/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,14 +25,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type ItemFormProps =
-  | { mode: "create"; defaultValues?: Partial<ItemFormValues> }
-  | {
-      mode: "edit";
-      itemId: string;
-      defaultValues: Partial<ItemFormValues> & { title: string; type: ItemType };
-    };
-
 const PRIORITY_OPTIONS = [
   { value: 0, label: "0 — None" },
   { value: 1, label: "1 — Low" },
@@ -45,7 +32,11 @@ const PRIORITY_OPTIONS = [
   { value: 3, label: "3 — High" },
 ];
 
-export function ItemForm(props: ItemFormProps) {
+export function ItemForm({
+  defaultValues,
+}: {
+  defaultValues?: Partial<ItemFormValues>;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -62,7 +53,7 @@ export function ItemForm(props: ItemFormProps) {
       actualHours: null,
       sourceUrl: "",
       notes: "",
-      ...props.defaultValues,
+      ...defaultValues,
     },
   });
 
@@ -84,17 +75,13 @@ export function ItemForm(props: ItemFormProps) {
 
   function onSubmit(values: ItemFormValues) {
     startTransition(async () => {
-      const result =
-        props.mode === "create"
-          ? await createItemAction(values)
-          : await updateItemAction({ id: props.itemId, ...values });
-
+      const result = await createItemAction(values);
       if (!result.ok) {
         applyFieldErrors(result.fieldErrors);
         toast.error(result.error);
         return;
       }
-      toast.success(props.mode === "create" ? "Item created" : "Item updated");
+      toast.success("Item created");
       router.push(`/items/${result.data.id}`);
       router.refresh();
     });
@@ -230,11 +217,7 @@ export function ItemForm(props: ItemFormProps) {
           Cancel
         </Button>
         <Button type="submit" disabled={isPending}>
-          {isPending
-            ? "Saving…"
-            : props.mode === "create"
-              ? "Create item"
-              : "Save changes"}
+          {isPending ? "Saving…" : "Create item"}
         </Button>
       </div>
     </form>

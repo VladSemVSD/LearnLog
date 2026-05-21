@@ -7,24 +7,15 @@ import { listItems } from "@/features/learning-items/service";
 import { listTags } from "@/features/tags/service";
 import { itemsCache } from "@/features/learning-items/cache";
 import { tagsCache } from "@/features/tags/cache";
-import { itemFilterSchema } from "@/features/learning-items/schema";
+import {
+  DEFAULT_ITEM_SORT,
+  itemFilterSchema,
+} from "@/features/learning-items/schema";
 import type { ItemFilter } from "@/features/learning-items/schema";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
-import { RelativeTime } from "@/components/shared/relative-time";
-import { StatusBadge } from "@/features/learning-items/components/status-badge";
-import { ProgressBar } from "@/features/learning-items/components/progress-bar";
 import { ItemsFilters } from "@/features/learning-items/components/items-filters";
-import { TagChip } from "@/features/tags/components/tag-chip";
-import { TYPE_LABEL } from "@/features/learning-items/constants";
+import { ItemsTable } from "@/features/learning-items/components/items-table";
 import ItemsLoading from "./loading";
 
 export const metadata = { title: "Items · Learning Portal" };
@@ -55,17 +46,21 @@ async function ItemsLoader({ searchParams }: { searchParams: SearchParams }) {
     type: firstParam(sp.type),
     status: firstParam(sp.status),
     tagId: firstParam(sp.tag),
+    sort: firstParam(sp.sort),
   });
-  const filter: ItemFilter = parsed.success ? parsed.data : {};
-  const hasFilters =
-    Boolean(filter.q) ||
-    Boolean(filter.type) ||
-    Boolean(filter.status) ||
-    Boolean(filter.tagId);
+  const filter: ItemFilter = parsed.success
+    ? parsed.data
+    : { sort: DEFAULT_ITEM_SORT };
+  const isUntouched =
+    !filter.q &&
+    !filter.type &&
+    !filter.status &&
+    !filter.tagId &&
+    filter.sort === DEFAULT_ITEM_SORT;
 
   const user = await requireUser();
 
-  if (hasFilters) {
+  if (!isUntouched) {
     return <ItemsContentFiltered userId={user.id} filter={filter} />;
   }
   return <ItemsContentEmpty userId={user.id} />;
@@ -77,7 +72,15 @@ async function ItemsContentEmpty({ userId }: { userId: string }) {
   cacheTag(tagsCache.tagFor(userId));
 
   const [items, tags] = await Promise.all([listItems(userId, {}), listTags(userId)]);
-  return <ItemsView items={items} tags={tags} hasFilters={false} />;
+  return (
+    <ItemsView
+      items={items}
+      tags={tags}
+      hasConstrainingFilter={false}
+      currentSort={DEFAULT_ITEM_SORT}
+      filterSearchString=""
+    />
+  );
 }
 
 async function ItemsContentFiltered({
@@ -91,7 +94,23 @@ async function ItemsContentFiltered({
     listItems(userId, filter),
     listTags(userId),
   ]);
-  return <ItemsView items={items} tags={tags} hasFilters={true} />;
+  const hasConstrainingFilter = Boolean(
+    filter.q || filter.type || filter.status || filter.tagId,
+  );
+  const params = new URLSearchParams();
+  if (filter.q) params.set("q", filter.q);
+  if (filter.type) params.set("type", filter.type);
+  if (filter.status) params.set("status", filter.status);
+  if (filter.tagId) params.set("tag", filter.tagId);
+  return (
+    <ItemsView
+      items={items}
+      tags={tags}
+      hasConstrainingFilter={hasConstrainingFilter}
+      currentSort={filter.sort ?? DEFAULT_ITEM_SORT}
+      filterSearchString={params.toString()}
+    />
+  );
 }
 
 type ItemViewRow = Awaited<ReturnType<typeof listItems>>[number];
@@ -100,11 +119,15 @@ type TagViewRow = Awaited<ReturnType<typeof listTags>>[number];
 function ItemsView({
   items,
   tags,
-  hasFilters,
+  hasConstrainingFilter,
+  currentSort,
+  filterSearchString,
 }: {
   items: ItemViewRow[];
   tags: TagViewRow[];
-  hasFilters: boolean;
+  hasConstrainingFilter: boolean;
+  currentSort: ItemFilter["sort"];
+  filterSearchString: string;
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -126,7 +149,7 @@ function ItemsView({
       />
 
       {items.length === 0 ? (
-        hasFilters ? (
+        hasConstrainingFilter ? (
           <EmptyState
             icon={SearchX}
             title="No items match these filters"
@@ -146,63 +169,12 @@ function ItemsView({
           />
         )
       ) : (
-        <div className="border-border bg-card overflow-hidden rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead className="w-32">Type</TableHead>
-                <TableHead className="w-32">Status</TableHead>
-                <TableHead className="w-40">Progress</TableHead>
-                <TableHead className="w-32">Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.id} className="relative cursor-pointer">
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <Link
-                        href={`/items/${item.id}`}
-                        className="font-medium before:absolute before:inset-0 before:content-['']"
-                      >
-                        {item.title}
-                      </Link>
-                      {item.tags.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {item.tags.map(({ tag }) => (
-                            <TagChip
-                              key={tag.id}
-                              name={tag.name}
-                              color={tag.color}
-                            />
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {TYPE_LABEL[item.type]}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={item.status} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <ProgressBar value={item.progressPercent} />
-                      <span className="text-muted-foreground w-9 text-right text-xs tabular-nums">
-                        {item.progressPercent}%
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    <RelativeTime iso={item.updatedAt} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <ItemsTable
+          items={items}
+          tags={tags}
+          currentSort={currentSort ?? DEFAULT_ITEM_SORT}
+          filterSearchString={filterSearchString}
+        />
       )}
     </div>
   );

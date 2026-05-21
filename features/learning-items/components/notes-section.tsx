@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { NotesEditor } from "./notes-editor";
-import { updateItemNotesAction } from "../server/actions";
+import { updateItemFieldsAction } from "../server/actions";
 
 export function NotesSection({
   itemId,
@@ -22,9 +22,9 @@ export function NotesSection({
 
   function save() {
     startTransition(async () => {
-      const result = await updateItemNotesAction({
+      const result = await updateItemFieldsAction({
         id: itemId,
-        notes: draft,
+        patch: { notes: draft },
       });
       if (!result.ok) {
         toast.error(result.error);
