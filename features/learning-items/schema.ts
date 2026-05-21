@@ -64,11 +64,24 @@ export type UpdateItemFieldsInput = z.infer<typeof updateItemFieldsSchema>;
 export type UpdateItemStatusInput = z.infer<typeof updateItemStatusSchema>;
 export type UpdateItemProgressInput = z.infer<typeof updateItemProgressSchema>;
 
+export const itemSortSchema = z.enum([
+  "updated-desc",
+  "updated-asc",
+  "priority-desc",
+  "priority-asc",
+  "completed-desc",
+  "title-asc",
+]);
+export type ItemSort = z.infer<typeof itemSortSchema>;
+
+export const DEFAULT_ITEM_SORT: ItemSort = "updated-desc";
+
 export const itemFilterSchema = z.object({
   q: z.string().optional(),
   type: z.enum(itemTypeValues).optional(),
   status: z.enum(itemStatusValues).optional(),
   tagId: z.string().optional(),
+  sort: itemSortSchema.optional().default(DEFAULT_ITEM_SORT),
 });
 
 export type ItemFilter = z.infer<typeof itemFilterSchema>;

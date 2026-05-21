@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ArrowDown, ArrowUp, ExternalLink } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -19,18 +19,61 @@ import type { SaveStateProviderHandle } from "./item-inline-editor/save-state-co
 import { ProgressBar } from "./progress-bar";
 import { StatusBadge } from "./status-badge";
 import { TYPE_LABEL } from "../constants";
+import type { ItemSort } from "../schema";
 import type { listItems } from "../service";
 import type { listTags } from "@/features/tags/service";
 
 type Item = Awaited<ReturnType<typeof listItems>>[number];
 type Tag = Awaited<ReturnType<typeof listTags>>[number];
 
+type SortableColumn = "title" | "priority" | "updated" | "completed";
+
+function nextSortFor(column: SortableColumn, current: ItemSort): ItemSort {
+  switch (column) {
+    case "title":
+      return "title-asc";
+    case "completed":
+      return "completed-desc";
+    case "priority":
+      return current === "priority-desc" ? "priority-asc" : "priority-desc";
+    case "updated":
+      return current === "updated-desc" ? "updated-asc" : "updated-desc";
+  }
+}
+
+function activeDirection(
+  column: SortableColumn,
+  current: ItemSort,
+): "asc" | "desc" | null {
+  if (column === "title" && current === "title-asc") return "asc";
+  if (column === "completed" && current === "completed-desc") return "desc";
+  if (column === "priority") {
+    if (current === "priority-desc") return "desc";
+    if (current === "priority-asc") return "asc";
+  }
+  if (column === "updated") {
+    if (current === "updated-desc") return "desc";
+    if (current === "updated-asc") return "asc";
+  }
+  return null;
+}
+
+function buildSortHref(filterSearchString: string, sort: ItemSort): string {
+  const params = new URLSearchParams(filterSearchString);
+  params.set("sort", sort);
+  return `/items?${params.toString()}`;
+}
+
 export function ItemsTable({
   items,
   tags,
+  currentSort,
+  filterSearchString,
 }: {
   items: Item[];
   tags: Tag[];
+  currentSort: ItemSort;
+  filterSearchString: string;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const editorRef = useRef<SaveStateProviderHandle>(null);
@@ -67,11 +110,33 @@ export function ItemsTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Title</TableHead>
+            <TableHead>
+              <SortHeader
+                label="Title"
+                column="title"
+                currentSort={currentSort}
+                filterSearchString={filterSearchString}
+              />
+            </TableHead>
             <TableHead className="w-32">Type</TableHead>
             <TableHead className="w-32">Status</TableHead>
+            <TableHead className="w-24">
+              <SortHeader
+                label="Priority"
+                column="priority"
+                currentSort={currentSort}
+                filterSearchString={filterSearchString}
+              />
+            </TableHead>
             <TableHead className="w-40">Progress</TableHead>
-            <TableHead className="w-32">Updated</TableHead>
+            <TableHead className="w-32">
+              <SortHeader
+                label="Updated"
+                column="updated"
+                currentSort={currentSort}
+                filterSearchString={filterSearchString}
+              />
+            </TableHead>
             <TableHead className="w-10" aria-label="Open detail" />
           </TableRow>
         </TableHeader>
@@ -142,6 +207,9 @@ function RowGroup({
         <TableCell>
           <StatusBadge status={item.status} />
         </TableCell>
+        <TableCell className="text-muted-foreground text-xs tabular-nums">
+          {item.priority}
+        </TableCell>
         <TableCell>
           <div className="flex items-center gap-2">
             <ProgressBar value={item.progressPercent} />
@@ -165,7 +233,7 @@ function RowGroup({
       </TableRow>
       {isExpanded ? (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
-          <TableCell colSpan={6} className="p-4 sm:p-6">
+          <TableCell colSpan={7} className="p-4 sm:p-6">
             <ItemInlineEditor
               item={item}
               availableTags={availableTags}
@@ -175,5 +243,31 @@ function RowGroup({
         </TableRow>
       ) : null}
     </>
+  );
+}
+
+function SortHeader({
+  label,
+  column,
+  currentSort,
+  filterSearchString,
+}: {
+  label: string;
+  column: SortableColumn;
+  currentSort: ItemSort;
+  filterSearchString: string;
+}) {
+  const direction = activeDirection(column, currentSort);
+  const href = buildSortHref(filterSearchString, nextSortFor(column, currentSort));
+  return (
+    <Link
+      href={href}
+      data-no-expand
+      className="hover:text-foreground inline-flex items-center gap-1"
+    >
+      {label}
+      {direction === "desc" ? <ArrowDown className="size-3" /> : null}
+      {direction === "asc" ? <ArrowUp className="size-3" /> : null}
+    </Link>
   );
 }

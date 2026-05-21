@@ -6,14 +6,16 @@ import { deleteScoped, updateScoped } from "@/lib/ownership";
 import type {
   CreateItemInput,
   ItemFilter,
+  ItemSort,
   UpdateItemFieldsInput,
 } from "./schema";
+import { DEFAULT_ITEM_SORT } from "./schema";
 import {
   applyLifecycleIntent,
   type CurrentLifecycle,
 } from "./lifecycle";
 
-function buildWhere(userId: string, f: ItemFilter) {
+function buildWhere(userId: string, f: Partial<ItemFilter>) {
   return {
     userId,
     ...(f.type ? { type: f.type } : {}),
@@ -23,12 +25,39 @@ function buildWhere(userId: string, f: ItemFilter) {
   };
 }
 
+function buildOrderBy(sort: ItemSort) {
+  switch (sort) {
+    case "updated-desc":
+      return { updatedAt: "desc" as const };
+    case "updated-asc":
+      return { updatedAt: "asc" as const };
+    case "priority-desc":
+      return [
+        { priority: "desc" as const },
+        { updatedAt: "desc" as const },
+      ];
+    case "priority-asc":
+      return [
+        { priority: "asc" as const },
+        { updatedAt: "desc" as const },
+      ];
+    case "completed-desc":
+      return { completedAt: { sort: "desc" as const, nulls: "last" as const } };
+    case "title-asc":
+      return { title: "asc" as const };
+  }
+}
+
 const includeTags = { tags: { include: { tag: true } } } as const;
 
-export function listItems(userId: string, filter: ItemFilter = {}) {
+export function listItems(
+  userId: string,
+  filter: Partial<ItemFilter> = {},
+) {
+  const sort = filter.sort ?? DEFAULT_ITEM_SORT;
   return db.learningItem.findMany({
     where: buildWhere(userId, filter),
-    orderBy: { updatedAt: "desc" },
+    orderBy: buildOrderBy(sort),
     include: includeTags,
   });
 }
