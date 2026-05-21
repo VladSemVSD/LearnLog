@@ -22,6 +22,7 @@ import {
   detachTagAction,
   updateTagAction,
 } from "../server/actions";
+import { ColorInput } from "./color-input";
 
 export type PickerTag = {
   id: string;
@@ -116,28 +117,18 @@ export function TagPicker({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex gap-2">
-          <Input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Search or create…"
-            className="flex-1"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && canCreate) {
-                e.preventDefault();
-                handleCreate();
-              }
-            }}
-          />
-          <Input
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-            placeholder="#color"
-            className="w-24"
-            aria-label="Tag color"
-          />
-        </div>
+        <Input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Search or create…"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && canCreate) {
+              e.preventDefault();
+              handleCreate();
+            }
+          }}
+        />
 
         <div className="-mx-1 max-h-64 overflow-y-auto">
           {filtered.length === 0 && !canCreate ? (
@@ -165,22 +156,25 @@ export function TagPicker({
         </div>
 
         {canCreate ? (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleCreate}
-            disabled={isPending}
-            className="w-full justify-start"
-          >
-            <Plus className="size-3.5" />
-            Create &quot;{name.trim()}&quot;
-            {color ? (
-              <span
-                className="ml-2 inline-block size-2.5 rounded-full"
-                style={{ backgroundColor: color }}
-              />
-            ) : null}
-          </Button>
+          <div className="flex flex-col gap-2">
+            <ColorInput value={color} onChange={setColor} />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCreate}
+              disabled={isPending}
+              className="w-full justify-start"
+            >
+              <Plus className="size-3.5" />
+              Create &quot;{name.trim()}&quot;
+              {color ? (
+                <span
+                  className="ml-2 inline-block size-2.5 rounded-full"
+                  style={{ backgroundColor: color }}
+                />
+              ) : null}
+            </Button>
+          </div>
         ) : null}
       </DialogContent>
     </Dialog>
@@ -237,11 +231,11 @@ function TagRow({
 
   if (isEditing) {
     return (
-      <li className="bg-muted/40 -mx-1 flex items-center gap-2 px-2 py-1.5">
+      <li className="bg-muted/40 -mx-1 flex flex-col gap-2 rounded-md px-2 py-2">
         <Input
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
-          className="h-8 flex-1"
+          className="h-8"
           autoFocus
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -251,23 +245,24 @@ function TagRow({
             if (e.key === "Escape") cancel();
           }}
         />
-        <Input
-          value={editColor}
-          onChange={(e) => setEditColor(e.target.value)}
-          placeholder="#color"
-          className="h-8 w-24"
-        />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={cancel}
-          disabled={isPending}
-        >
-          Cancel
-        </Button>
-        <Button size="sm" onClick={save} disabled={isPending || !editName.trim()}>
-          {isPending ? "…" : "Save"}
-        </Button>
+        <ColorInput value={editColor} onChange={setEditColor} />
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={cancel}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={save}
+            disabled={isPending || !editName.trim()}
+          >
+            {isPending ? "…" : "Save"}
+          </Button>
+        </div>
       </li>
     );
   }
