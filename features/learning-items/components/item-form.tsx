@@ -16,7 +16,7 @@ import {
 } from "../constants";
 import {
   createItemAction,
-  updateItemAction,
+  updateItemFieldsAction,
 } from "../server/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,10 +84,20 @@ export function ItemForm(props: ItemFormProps) {
 
   function onSubmit(values: ItemFormValues) {
     startTransition(async () => {
-      const result =
-        props.mode === "create"
-          ? await createItemAction(values)
-          : await updateItemAction({ id: props.itemId, ...values });
+      let result;
+      if (props.mode === "create") {
+        result = await createItemAction(values);
+      } else {
+        // Edit mode strips status (lifecycle-affecting; goes via its own action
+        // elsewhere) and progressPercent (no UI field). Plain bag only.
+        const { status: _s, progressPercent: _p, ...plain } = values;
+        void _s;
+        void _p;
+        result = await updateItemFieldsAction({
+          id: props.itemId,
+          patch: plain,
+        });
+      }
 
       if (!result.ok) {
         applyFieldErrors(result.fieldErrors);
@@ -95,7 +105,9 @@ export function ItemForm(props: ItemFormProps) {
         return;
       }
       toast.success(props.mode === "create" ? "Item created" : "Item updated");
-      router.push(`/items/${result.data.id}`);
+      const targetId =
+        props.mode === "create" ? result.data.id : props.itemId;
+      router.push(`/items/${targetId}`);
       router.refresh();
     });
   }
@@ -144,30 +156,32 @@ export function ItemForm(props: ItemFormProps) {
           />
         </Field>
 
-        <Field label="Status" error={errors.status?.message}>
-          <Controller
-            control={control}
-            name="status"
-            render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue>
-                    {(v: string) =>
-                      v ? STATUS_LABEL[v as ItemStatus] : "Select status"
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(STATUS_LABEL) as ItemStatus[]).map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {STATUS_LABEL[s]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Field>
+        {props.mode === "create" ? (
+          <Field label="Status" error={errors.status?.message}>
+            <Controller
+              control={control}
+              name="status"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue>
+                      {(v: string) =>
+                        v ? STATUS_LABEL[v as ItemStatus] : "Select status"
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(STATUS_LABEL) as ItemStatus[]).map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {STATUS_LABEL[s]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
+        ) : null}
 
         <Field label="Priority" error={errors.priority?.message}>
           <Controller

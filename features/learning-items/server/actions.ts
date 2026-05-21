@@ -5,17 +5,15 @@ import { itemsCache } from "../cache";
 import {
   createItem,
   deleteItem,
-  updateItem,
-  updateItemNotes,
+  updateItemFields,
   updateItemProgress,
   updateItemStatus,
 } from "../service";
 import {
   createItemSchema,
   deleteItemSchema,
-  updateItemNotesSchema,
+  updateItemFieldsSchema,
   updateItemProgressSchema,
-  updateItemSchema,
   updateItemStatusSchema,
 } from "../schema";
 
@@ -28,11 +26,11 @@ export const createItemAction = defineAction({
   map: (item) => ({ id: item.id }),
 });
 
-export const updateItemAction = defineAction({
-  schema: updateItemSchema,
+export const updateItemFieldsAction = defineAction({
+  schema: updateItemFieldsSchema,
   invalidates: writesItems,
-  service: (userId, input) => updateItem(userId, input),
-  map: (item) => ({ id: item.id }),
+  service: (userId, input) => updateItemFields(userId, input.id, input.patch),
+  map: (result) => ({ id: result.id }),
 });
 
 export const deleteItemAction = defineAction({
@@ -60,11 +58,4 @@ export const updateItemProgressAction = defineAction({
     shouldPromptComplete: result.shouldPromptComplete,
     autoStarted: result.autoStarted,
   }),
-});
-
-export const updateItemNotesAction = defineAction({
-  schema: updateItemNotesSchema,
-  invalidates: writesItems,
-  service: (userId, input) => updateItemNotes(userId, input.id, input.notes),
-  map: (item) => ({ id: item.id }),
 });

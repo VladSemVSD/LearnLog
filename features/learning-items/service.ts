@@ -6,7 +6,7 @@ import { deleteScoped, updateScoped } from "@/lib/ownership";
 import type {
   CreateItemInput,
   ItemFilter,
-  UpdateItemInput,
+  UpdateItemFieldsInput,
 } from "./schema";
 import {
   applyLifecycleIntent,
@@ -117,14 +117,17 @@ export async function createItem(userId: string, input: CreateItemInput) {
   });
 }
 
-export async function updateItem(userId: string, input: UpdateItemInput) {
-  // Status changes go through updateItemStatus (lifecycle owns that side
-  // effect chain); strip it out of generic updates so callers can't bypass.
-  const { id, status: _statusIgnored, ...rest } = input;
-  void _statusIgnored;
-  const sourceUrl = normalizeSourceUrl(rest.sourceUrl);
+export async function updateItemFields(
+  userId: string,
+  id: string,
+  patch: UpdateItemFieldsInput["patch"],
+) {
+  // Plain fields only — status + progress flow through their own actions so
+  // the lifecycle module's one-axis-at-a-time assumption holds.
+  // See docs/adr/0002-split-actions-along-lifecycle-boundary.md.
+  const sourceUrl = normalizeSourceUrl(patch.sourceUrl);
   const data = {
-    ...rest,
+    ...patch,
     ...(sourceUrl !== undefined ? { sourceUrl } : {}),
   };
   const ok = await updateScoped(db.learningItem, { id, userId }, data);
@@ -198,11 +201,3 @@ export async function updateItemProgress(
   };
 }
 
-export async function updateItemNotes(
-  userId: string,
-  id: string,
-  notes: string,
-) {
-  const ok = await updateScoped(db.learningItem, { id, userId }, { notes });
-  return ok ? { id } : null;
-}
