@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import {
   Select,
   SelectContent,
@@ -10,7 +9,7 @@ import {
 } from "@/components/ui/select";
 import { updateItemFieldsAction } from "../../server/actions";
 import type { UpdateItemFieldsInput } from "../../schema";
-import { useSaveState } from "./save-state-context";
+import { useAutosaveField } from "./use-autosave-field";
 
 type Option = { value: string; label: string };
 
@@ -33,36 +32,21 @@ export function InlineSelect({
   renderValue?: (raw: string) => string;
   triggerClassName?: string;
 }) {
-  const [value, setValue] = useState(initialValue);
-  const [, startTransition] = useTransition();
-  const { markSaving, markSaved, markError, setLastAttempt } = useSaveState();
-
-  function onValueChange(next: string | null) {
-    if (next === null || next === value) return;
-    setValue(next);
-
-    const attempt = () =>
-      new Promise<void>((resolve) => {
-        startTransition(async () => {
-          markSaving();
-          const result = await updateItemFieldsAction({
-            id: itemId,
-            patch: buildPatch(next),
-          });
-          if (result.ok) {
-            markSaved();
-          } else {
-            markError(result.error);
-          }
-          resolve();
-        });
-      });
-    setLastAttempt(attempt);
-    void attempt();
-  }
+  const autosave = useAutosaveField<string>({
+    initial: initialValue,
+    commitOn: { on: "change" },
+    save: (next) =>
+      updateItemFieldsAction({ id: itemId, patch: buildPatch(next) }),
+  });
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select
+      value={autosave.value}
+      onValueChange={(next: string | null) => {
+        if (next === null) return;
+        autosave.setValue(next);
+      }}
+    >
       <SelectTrigger className={triggerClassName}>
         <SelectValue>
           {(v: string) => {
