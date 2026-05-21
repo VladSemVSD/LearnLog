@@ -106,8 +106,8 @@ export function ItemsTable({
   return (
     <div className="border-border bg-card overflow-hidden rounded-lg border">
       <Table>
-        <TableHeader>
-          <TableRow>
+        <TableHeader className="bg-muted/50 [&_tr]:border-b-2">
+          <TableRow className="hover:bg-muted/50">
             <TableHead>
               <SortHeader
                 label="Title"
