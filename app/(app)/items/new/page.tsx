@@ -13,7 +13,7 @@ export default function NewItemPage() {
         </p>
       </div>
       <div className="max-w-2xl">
-        <ItemForm mode="create" />
+        <ItemForm />
       </div>
     </div>
   );
